@@ -65,7 +65,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.37)")
+st.title("📊 글로벌 마켓 대시보드 (v6.38)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -216,19 +216,17 @@ def get_market_data():
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
-# 🌟 [신규 엔진] 구글 뉴스 실시간 크롤링 (국내/해외 경제)
-@st.cache_data(ttl=600) # 뉴스는 10분 단위로 캐싱하여 트래픽 부담 완화
+# [신규 엔진] 구글 뉴스 실시간 크롤링
+@st.cache_data(ttl=600) 
 def get_news_data():
     news_dict = {"KR": [], "US": []}
-    
-    # 구글 뉴스 RSS URL (비즈니스/경제 섹션)
     kr_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko"
     us_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"
     
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        for item in kr_root.findall('.//item')[:5]: # 최신 5개 추출
+        for item in kr_root.findall('.//item')[:5]: 
             title = item.find('title').text
             link = item.find('link').text
             news_dict["KR"].append({"title": title, "link": link})
@@ -267,13 +265,13 @@ def get_market_regime(latest_data):
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
     
     if vix >= 30 or sp500_mdd <= -20:
-        return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 현금 비중을 늘리고 리스크 관리에 각별히 유의해야 할 시기입니다.", "error"
+        return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 각별히 유의하세요.", "error"
     elif vix >= 20 or sp500_mdd <= -10:
-        return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 뚜렷한 조정 국면에 진입했습니다. 보수적인 포트폴리오 접근이 필요합니다.", "warning"
+        return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
     elif vix < 15 and sp500_mdd >= -3:
-        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 S&P 500이 고점 부근에 위치하여 투자 심리가 매우 안정적인 강세장입니다.", "success"
+        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else:
-        return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있는 보통장입니다.", "info"
+        return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 # ---------------------------------------------------------
 # UI 레이아웃
@@ -294,15 +292,26 @@ with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수
 
 st.subheader("💡 주요 시장 지표 현황")
 
-regime_title, regime_desc, regime_type = get_market_regime(latest_data)
-if regime_type == "error":
-    st.error(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
-elif regime_type == "warning":
-    st.warning(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
-elif regime_type == "success":
-    st.success(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
-else:
-    st.info(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
+# 🌟 [신규 레이아웃] 시장 기상도와 캘린더 알림판을 2:1 비율로 나란히 배치
+weather_col, cal_col = st.columns([2, 1])
+
+with weather_col:
+    regime_title, regime_desc, regime_type = get_market_regime(latest_data)
+    if regime_type == "error":
+        st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+    elif regime_type == "warning":
+        st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+    elif regime_type == "success":
+        st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+    else:
+        st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+
+with cal_col:
+    # 🌟 일정판 내용 (필요시 이 텍스트만 쓱쓱 수정하시면 됩니다)
+    st.info("📅 **이번 주 주요 매크로 일정**\n"
+            "- **09/16 (수):** 미국 8월 소매판매 발표\n"
+            "- **09/18 (금):** 미국 선물옵션 동시만기일 (네 마녀의 날)\n"
+            "- **09/22 (화):** 일본 BOJ 기준금리 결정")
 
 st.markdown("""
 <div style='font-size: 0.85rem; color: #888; margin-bottom: 15px;'>
@@ -438,7 +447,6 @@ with mini_cols4[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국3
 with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
 with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
 
-# 🌟 5. [신규 섹션] 실시간 주요 경제 뉴스 하단 추가
 st.divider()
 st.subheader("📰 실시간 주요 경제 뉴스 (Google News 제공)")
 
