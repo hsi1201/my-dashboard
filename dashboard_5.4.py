@@ -73,12 +73,12 @@ h1 {
     margin-bottom: 15px;
     border-radius: 4px;
     font-size: 0.9rem;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.48)")
+st.title("📊 글로벌 마켓 대시보드 (v6.49)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -112,7 +112,7 @@ def get_market_data():
         except:
             pass 
 
-    # 🌟 [엔진 1] 가장 안정적인 야후 파이낸스 서버 원복
+    # [엔진 1] 안정적인 야후 파이낸스 서버 원복
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -309,47 +309,50 @@ st.subheader("💡 주요 시장 지표 현황")
 
 weather_col, cal_col = st.columns([2, 1])
 
-# 🌟 기상도별 맞춤형 ETF (미국 + 국내 상장 듀얼 표기)
+# 🌟 기상도별 테마형 ETF 추천 추가 적용
 with weather_col:
     regime_title, regime_desc, regime_type = get_market_regime(latest_data)
     if regime_type == "error":
         st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
         st.markdown("""
         <div class='etf-box'>
-            🛡️ <b>[맞춤 전략] 약세장(Safe Haven) 피난처:</b> 현금성 자산 및 달러 확보<br>
-            🇺🇸 <b>미국 상장 직투:</b> BIL (초단기채), TLT (장기채), UUP (달러 인덱스)<br>
-            🇰🇷 <b>국내 연금/ISA용:</b> KODEX CD금리액티브, KODEX 미국달러선물, ACE 미국30년국채액티브(H)
+            🛡️ <b>[맞춤 전략] 약세장(Safe Haven) 피난처:</b> 현금성 자산 및 방어 테마<br>
+            🇺🇸 <b>미국 대표 지수:</b> BIL (초단기채), TLT (장기채), UUP (달러 인덱스)<br>
+            🇰🇷 <b>국내 연금/ISA:</b> KODEX CD금리액티브, KODEX 미국달러선물, ACE 미국30년국채액티브(H)<br>
+            💡 <b>주목할 테마:</b> 🇺🇸 <b>ITA</b> (방위산업), <b>GDX</b> (금광기업) | 🇰🇷 <b>ARIRANG K방산기아챔피언</b>
         </div>
         """, unsafe_allow_html=True)
     elif regime_type == "warning":
         st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
         st.markdown("""
         <div class='etf-box'>
-            ☂️ <b>[맞춤 전략] 조정장(Defensive) 방어 전략:</b> 안전자산 및 방어주 중심<br>
-            🇺🇸 <b>미국 상장 직투:</b> TLT (미국 장기채), GLD (금), XLV (헬스케어 방어주)<br>
-            🇰🇷 <b>국내 연금/ISA용:</b> TIGER 미국채10년선물, ACE 골드선물(H), TIGER 미국헬스케어
+            ☂️ <b>[맞춤 전략] 조정장(Defensive) 방어 전략:</b> 안전자산 및 필수소비재 중심<br>
+            🇺🇸 <b>미국 대표 지수:</b> TLT (미국 장기채), GLD (금), XLV (헬스케어 방어주)<br>
+            🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국채10년선물, ACE 골드선물(H), TIGER 미국헬스케어<br>
+            💡 <b>주목할 테마:</b> 🇺🇸 <b>XLU</b> (유틸리티), <b>XLP</b> (필수소비재) | 🇰🇷 <b>KODEX 미국S&P500유틸리티</b>
         </div>
         """, unsafe_allow_html=True)
     elif regime_type == "success":
         st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
         st.markdown("""
         <div class='etf-box'>
-            🚀 <b>[맞춤 전략] 강세장(Risk On) 공격 타격:</b> 기술주 및 주도주 중심<br>
-            🇺🇸 <b>미국 상장 직투:</b> QQQ (나스닥 기술주), SOXX (반도체), SPY (S&P 500)<br>
-            🇰🇷 <b>국내 연금/ISA용:</b> TIGER 미국나스닥100, KODEX 미국반도체MV, TIGER 미국S&P500
+            🚀 <b>[맞춤 전략] 강세장(Risk On) 공격 타격:</b> 지수 레버리지 및 주도 테마 중심<br>
+            🇺🇸 <b>미국 대표 지수:</b> QQQ (나스닥 기술주), SOXX (반도체), SPY (S&P 500)<br>
+            🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국나스닥100, KODEX 미국반도체MV, TIGER 미국S&P500<br>
+            💡 <b>주목할 테마:</b> 🇺🇸 <b>BOTZ</b> (AI/로봇), <b>IBIT</b> (비트코인) | 🇰🇷 <b>KODEX 미국AI테크TOP10</b>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
         st.markdown("""
         <div class='etf-box'>
-            ⚖️ <b>[맞춤 전략] 눈치보기(Neutral) 코어 전략:</b> 지수 방어 및 배당 수익<br>
-            🇺🇸 <b>미국 상장 직투:</b> SPY (S&P 500 코어), VIG (배당성장), USMV (저변동성)<br>
-            🇰🇷 <b>국내 연금/ISA용:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스, KODEX 배당성장
+            ⚖️ <b>[맞춤 전략] 눈치보기(Neutral) 코어 전략:</b> 지수 방어 및 고배당 수익<br>
+            🇺🇸 <b>미국 대표 지수:</b> SPY (S&P 500 코어), SCHD (배당성장), USMV (저변동성)<br>
+            🇰🇷 <b>국내 연금/ISA:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스, KODEX 배당성장<br>
+            💡 <b>주목할 테마:</b> 🇺🇸 <b>PAVE</b> (미국 인프라), <b>JEPQ</b> (고배당) | 🇰🇷 <b>TIGER 미국배당+7%프리미엄</b>
         </div>
         """, unsafe_allow_html=True)
 
-# 🌟 이번 주 및 다음 주 프리뷰 통합 캘린더
 with cal_col:
     st.info("📅 **다가오는 주요 매크로 일정**\n\n"
             "**[이번 주 리뷰]**\n"
