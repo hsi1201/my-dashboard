@@ -77,7 +77,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.45)")
+st.title("📊 글로벌 마켓 대시보드 (v6.46)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -313,19 +313,15 @@ with weather_col:
     regime_title, regime_desc, regime_type = get_market_regime(latest_data)
     if regime_type == "error":
         st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        # 🌟 기상도 맞춤형 ETF 추천 (약세장)
         st.markdown("<div class='etf-box'>🛡️ <b>[맞춤 전략] 약세장(Safe Haven) 추천 ETF:</b> 🇺🇸 <b>BIL</b> (초단기채/현금성), <b>TLT</b> (장기채), <b>UUP</b> (달러 인덱스)</div>", unsafe_allow_html=True)
     elif regime_type == "warning":
         st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        # 🌟 기상도 맞춤형 ETF 추천 (조정장)
         st.markdown("<div class='etf-box'>☂️ <b>[맞춤 전략] 조정장(Defensive) 추천 ETF:</b> 🇺🇸 <b>TLT</b> (미국 장기채), <b>GLD</b> (금), <b>XLV</b> (헬스케어 방어주)</div>", unsafe_allow_html=True)
     elif regime_type == "success":
         st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        # 🌟 기상도 맞춤형 ETF 추천 (강세장)
         st.markdown("<div class='etf-box'>🚀 <b>[맞춤 전략] 강세장(Risk On) 추천 ETF:</b> 🇺🇸 <b>QQQ</b> (나스닥 기술주), <b>SOXX</b> (반도체), <b>SPY</b> (S&P 500)</div>", unsafe_allow_html=True)
     else:
         st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        # 🌟 기상도 맞춤형 ETF 추천 (보통장)
         st.markdown("<div class='etf-box'>⚖️ <b>[맞춤 전략] 눈치보기(Neutral) 추천 ETF:</b> 🇺🇸 <b>SPY</b> (S&P 500 코어), <b>VIG</b> (배당성장), <b>USMV</b> (저변동성)</div>", unsafe_allow_html=True)
 
 with cal_col:
@@ -411,6 +407,7 @@ with chart_cols[1]:
 st.divider()
 
 st.subheader("📉 개별 지수 및 환율/원자재 추이")
+# 🌟 수정한 문법: 괄호 ) 정상 복구
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -433,7 +430,7 @@ def draw_mini_chart(df, column_name):
                 alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), 
                 alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')
             ]
-        ]
+        ) 
         
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
