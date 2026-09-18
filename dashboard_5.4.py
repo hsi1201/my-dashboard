@@ -78,7 +78,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.47)")
+st.title("📊 글로벌 마켓 대시보드 (v6.48)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -349,10 +349,14 @@ with weather_col:
         </div>
         """, unsafe_allow_html=True)
 
+# 🌟 이번 주 및 다음 주 프리뷰 통합 캘린더
 with cal_col:
-    st.info("📅 **이번 주 주요 매크로 일정**\n"
-            "- **09/16 (수):** 미국 8월 소매판매 발표\n"
-            "- **09/18 (금):** 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날")
+    st.info("📅 **다가오는 주요 매크로 일정**\n\n"
+            "**[이번 주 리뷰]**\n"
+            "- **09/18 (금):** 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
+            "**[다음 주 프리뷰]**\n"
+            "- **09/24 (목):** 파월 연준 의장 연설 / 미 신규 실업수당 청구\n"
+            "- **09/25 (금):** 🚨 **미국 8월 개인소비지출(PCE) 물가지수**")
 
 st.markdown("""
 <div style='font-size: 0.85rem; color: #888; margin-bottom: 15px;'>
