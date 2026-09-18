@@ -59,6 +59,8 @@ h1 {
     color: #1E88E5;
     font-size: 0.95rem;
     line-height: 1.6;
+    margin-bottom: 8px;
+    display: inline-block;
 }
 .news-link:hover {
     text-decoration: underline;
@@ -85,7 +87,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.52)")
+st.title("📊 글로벌 마켓 대시보드 (v6.53)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -237,7 +239,7 @@ def get_market_data():
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
-# [신규 엔진] 구글 뉴스 실시간 크롤링
+# [신규 엔진] 구글 뉴스 실시간 크롤링 (Top 10 확장)
 @st.cache_data(ttl=600) 
 def get_news_data():
     news_dict = {"KR": [], "US": []}
@@ -247,7 +249,8 @@ def get_news_data():
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        for item in kr_root.findall('.//item')[:5]: 
+        # 🌟 노출 기사 수 5개 -> 10개로 상향
+        for item in kr_root.findall('.//item')[:10]: 
             title = item.find('title').text
             link = item.find('link').text
             news_dict["KR"].append({"title": title, "link": link})
@@ -257,7 +260,8 @@ def get_news_data():
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
-        for item in us_root.findall('.//item')[:5]:
+        # 🌟 노출 기사 수 5개 -> 10개로 상향
+        for item in us_root.findall('.//item')[:10]:
             title = item.find('title').text
             link = item.find('link').text
             news_dict["US"].append({"title": title, "link": link})
@@ -322,6 +326,7 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
+        # 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 미사용
         chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
@@ -329,7 +334,7 @@ def draw_mini_chart(df, column_name):
 
 
 # ---------------------------------------------------------
-# 🌟 UI 공통 헤더: 알림창 단일화 (공간 최적화)
+# UI 공통 헤더: 알림창 단일화
 # ---------------------------------------------------------
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
     st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
@@ -519,15 +524,16 @@ with tab2:
 # 탭 3: 실시간 경제 뉴스 (News)
 # ==============================================================================
 with tab3:
-    st.subheader("📰 실시간 주요 경제 뉴스 (Google News 제공)")
+    st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
 
+    # 🌟 늘어난 10개의 리스트에 맞춰 간격을 쾌적하게 렌더링
     with news_col1:
-        st.markdown("##### 🇰🇷 국내 경제/비즈니스")
+        st.markdown("##### 🇰🇷 국내 경제/비즈니스 (Top 10)")
         for news in news_data["KR"]:
-            st.markdown(f"- <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
     with news_col2:
-        st.markdown("##### 🌎 글로벌 경제/비즈니스")
+        st.markdown("##### 🌎 글로벌 경제/비즈니스 (Top 10)")
         for news in news_data["US"]:
-            st.markdown(f"- <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
