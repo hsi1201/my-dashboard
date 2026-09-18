@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.14)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.16)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -236,6 +236,7 @@ cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"
 
 st.divider()
 
+# 🌟 [수정 완료] 차트는 다시 2분할(좌우)로 배치하고, 범례(Legend)만 다단(columns)으로 나눠서 글자 잘림 방지
 chart_cols = st.columns(2)
 
 with chart_cols[0]:
@@ -245,7 +246,8 @@ with chart_cols[0]:
     line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
         x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
         y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom")),
+        # 🌟 범례를 3칸씩(columns=3) 나누어 강제로 두 줄로 만듦
+        color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
     ).interactive()
     st.altair_chart(line_chart, use_container_width=True)
@@ -257,7 +259,8 @@ with chart_cols[1]:
     yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
         x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
         y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom")),
+        # 🌟 범례를 2칸씩(columns=2) 나누어 강제로 두 줄로 만듦
+        color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
     ).interactive()
     st.altair_chart(yield_chart, use_container_width=True)
