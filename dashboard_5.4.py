@@ -59,7 +59,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.8)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.9)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -93,10 +93,10 @@ def get_market_data():
         except:
             pass 
 
-    # 🌟 [엔진 1] 야후 파이낸스 서버 (니케이 실제 지수 '^N225' 추가)
+    # [엔진 1] 야후 파이낸스 서버
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
-        '^N225': '니케이', # 니케이 225 실제 지수 연동
+        '^N225': '니케이', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
     }
     for ticker, name in yf_tickers.items():
@@ -109,7 +109,7 @@ def get_market_data():
         except:
             continue
 
-    # 🌟 [엔진 2] 네이버 금융 & KRX 서버 (니케이 ETF 제거)
+    # [엔진 2] 네이버 금융 & KRX 서버
     fdr_tickers = {
         'KS11': '코스피', 
         'KS200': '코스피200', 
@@ -146,7 +146,6 @@ def get_market_data():
             
         diff = curr - prev 
         
-        # 🌟 니케이도 실제 지수로 바뀌었으므로 일관성 있게 소수점 2자리로 통일 처리
         if '년물' in col: 
             changes[col] = f"{diff:+.3f}%p"
         else: 
@@ -158,6 +157,9 @@ def get_market_data():
     
     df.index.name = '일자'
     df.reset_index(inplace=True)
+    
+    # 🌟 데이터 표에서 00:00:00 시간을 날리고 연-월-일만 남김
+    df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
     
     if '한국10년물' not in df.columns: df['한국10년물'] = 3.123 
     if '한국30년물' not in df.columns: df['한국30년물'] = 2.987
@@ -217,7 +219,6 @@ st.markdown("""
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
-# 🌟 니케이 카드 표시 형식도 실제 지수에 맞춰 소수점 2자리로 통일
 cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
