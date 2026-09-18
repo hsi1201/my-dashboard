@@ -8,7 +8,7 @@ import requests
 # 1. 웹페이지 기본 설정
 st.set_page_config(page_title="나만의 투자 관제탑", layout="wide", initial_sidebar_state="collapsed")
 
-# 🌟 [디자인 1] CSS 주입: 강제 줄바꿈(\n) 인식을 위한 pre-line 속성 적용
+# 🌟 [디자인 1] CSS 주입
 st.markdown("""
 <style>
 [data-testid="stMetric"] {
@@ -36,12 +36,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.4)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.5)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
 # 2. 데이터 자동 수집 및 계산 엔진
-@st.cache_data(ttl=180) 
+@st.cache_data(ttl=3600) 
 def get_market_data():
     df_list = []
     
@@ -106,10 +106,32 @@ def get_market_data():
     df = pd.concat(df_list, axis=1)
     
     last_dates = {}
+    changes = {}
+    
+    # 🌟 핵심 수정: 빈칸을 복사(ffill)하기 전에 '실제 존재하는' 마지막 두 날짜 데이터만 비교하여 등락률 계산
     for col in df.columns:
-        valid_date = df[col].last_valid_index()
+        valid_series = df[col].dropna()
+        valid_date = valid_series.index[-1] if not valid_series.empty else None
         last_dates[col] = valid_date.strftime('%m/%d') if pd.notnull(valid_date) else "N/A"
         
+        if len(valid_series) >= 2:
+            prev = valid_series.iloc[-2]
+            curr = valid_series.iloc[-1]
+        elif len(valid_series) == 1:
+            prev = curr = valid_series.iloc[0]
+        else:
+            prev = curr = 0
+            
+        diff = curr - prev 
+        if '년물' in col: 
+            changes[col] = f"{diff:+.3f}%p"
+        elif col == '니케이':
+            pct = (diff / prev) * 100 if prev != 0 else 0
+            changes[col] = f"{diff:+.0f} ({pct:+.2f}%)"
+        else: 
+            pct = (diff / prev) * 100 if prev != 0 else 0
+            changes[col] = f"{diff:+.2f} ({pct:+.2f}%)"
+            
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
@@ -134,26 +156,11 @@ def get_market_data():
     
     sync_time = pd.Timestamp.now(tz='Asia/Seoul').strftime('%m/%d %H:%M')
     
-    return df, last_dates, sync_time
+    return df, last_dates, changes, sync_time
 
-df_market, last_dates, sync_time = get_market_data()
-
+# 반환받는 변수에 changes 추가 및 기존 get_daily_change 함수 삭제
+df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
-yesterday_data = df_market.iloc[-2] if len(df_market) > 1 else latest_data
-
-def get_daily_change(col):
-    curr = latest_data.get(col, 0)
-    prev = yesterday_data.get(col, curr)
-    diff = curr - prev 
-    
-    if '년물' in col: 
-        return f"{diff:+.3f}%p"
-    elif col == '니케이':
-        pct = (diff / prev) * 100 if prev != 0 else 0
-        return f"{diff:+.0f} ({pct:+.2f}%)"
-    else: 
-        pct = (diff / prev) * 100 if prev != 0 else 0
-        return f"{diff:+.2f} ({pct:+.2f}%)"
 
 def get_mdd_text(mdd_val):
     mdd_pct = mdd_val * 100
@@ -176,7 +183,6 @@ st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간
 
 st.subheader("💡 주요 시장 지표 현황")
 
-# 🌟 MDD 색상 범례(Legend) 가이드 추가
 st.markdown("""
 <div style='font-size: 0.85rem; color: #888; margin-bottom: 15px;'>
     <b>※ MDD 상태 가이드:</b> &nbsp;
@@ -188,23 +194,24 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# 🌟 metric의 세 번째 인자를 계산된 changes 딕셔너리에서 가져오도록 수정
 cols1 = st.columns(4)
-cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", get_daily_change('S&P500'))
-cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", get_daily_change('나스닥'))
-cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.0f}", get_daily_change('니케이'))
-cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", get_daily_change('WTI유'))
+cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
+cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
+cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.0f}", changes.get('니케이', '0.00'))
+cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
 cols2 = st.columns(4)
-cols2[0].metric(f"KOSPI 200 [{last_dates.get('코스피200', '-')}]\n{get_mdd_text(latest_data.get('코스피200 MDD', 0))}", f"{latest_data.get('코스피200', 0):,.2f}", get_daily_change('코스피200'))
-cols2[1].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", get_daily_change('코스피'))
-cols2[2].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", get_daily_change('코스닥'))
-cols2[3].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", get_daily_change('환율($/원)'))
+cols2[0].metric(f"KOSPI 200 [{last_dates.get('코스피200', '-')}]\n{get_mdd_text(latest_data.get('코스피200 MDD', 0))}", f"{latest_data.get('코스피200', 0):,.2f}", changes.get('코스피200', '0.00'))
+cols2[1].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
+cols2[2].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
+cols2[3].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
 
 cols3 = st.columns(4)
-cols3[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", get_daily_change('미국10년물'))
-cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", get_daily_change('미국30년물'))
-cols3[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", get_daily_change('한국10년물'))
-cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", get_daily_change('한국30년물'))
+cols3[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
+cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
+cols3[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
+cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
 
 st.divider()
 
@@ -281,5 +288,3 @@ with mini_cols3[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국1
 with mini_cols3[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
 with mini_cols3[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
 with mini_cols3[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
-
-st.caption("시스템 v6.4 · MDD 색상 가이드 범례 추가 완료")
