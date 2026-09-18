@@ -12,17 +12,12 @@ st.set_page_config(page_title="나만의 투자 관제탑", layout="wide", initi
 # 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=180000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입: 화면 낭비(상단 여백) 제거 및 글자 크기 압축
+# 🌟 [디자인 1] CSS 주입: 헤더 메뉴는 살려두고 여백만 압축
 st.markdown("""
 <style>
-/* 기본 헤더(상단 빈 공간) 완전히 숨기기 */
-[data-testid="stHeader"] {
-    display: none !important;
-}
-
-/* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 */
+/* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 (메뉴바와 겹치지 않게 상단 여백 소폭 확보) */
 .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 3rem !important; 
     padding-bottom: 1.5rem !important;
 }
 
@@ -59,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.13)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.14)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -201,7 +196,6 @@ def get_mdd_text(mdd_val):
 
 st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준) - 3분 단위 자동 새로고침 작동 중")
 
-# 🌟 [수정 완료] 코스피 200을 일일 마감 갱신 그룹으로 정확하게 이동
 with st.expander("📌 데이터 업데이트 기준 및 시차 안내 (클릭하여 열기)"):
     st.markdown("""
     - **미국 증시 & 국채 (S&P 500, 나스닥, 미국 10년/30년물):** 한국 시간 기준 낮(야간)에는 미국 정규장이 닫혀 있어 전일 마감가로 고정되며, 오늘 밤 미국 본장이 개장하면 실시간 반영됩니다.
