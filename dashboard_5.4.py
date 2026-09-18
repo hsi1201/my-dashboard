@@ -4,22 +4,41 @@ import altair as alt
 import yfinance as yf
 import FinanceDataReader as fdr
 import requests
-from streamlit_autorefresh import st_autorefresh # 🌟 자동 갱신 타이머 부품 추가
+from streamlit_autorefresh import st_autorefresh 
 
 # 1. 웹페이지 기본 설정
 st.set_page_config(page_title="나만의 투자 관제탑", layout="wide", initial_sidebar_state="collapsed")
 
-# 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면을 백그라운드에서 자동으로 새로고침
+# 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=180000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입
+# 🌟 [디자인 1] CSS 주입: 화면 낭비(상단 여백) 제거 및 글자 크기 압축
 st.markdown("""
 <style>
+/* 기본 헤더(상단 빈 공간) 완전히 숨기기 */
+[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 */
+.block-container {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+}
+
+/* 메인 타이틀(h1) 글자 크기 축소 및 아래쪽 여백 줄이기 */
+h1 {
+    font-size: 1.6rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0.2rem !important;
+}
+
+/* 카드 UI 기본 설정 (기존 유지) */
 [data-testid="stMetric"] {
     background-color: rgba(130, 130, 130, 0.05);
     border: 1px solid rgba(130, 130, 130, 0.2);
     border-radius: 12px;
-    padding: 15px;
+    padding: 12px; /* 카드 내부 여백도 살짝 줄여서 압축 */
     box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.05);
     transition: transform 0.2s ease-in-out;
 }
@@ -35,17 +54,17 @@ st.markdown("""
     overflow: visible !important;
     text-overflow: clip !important;
     line-height: 1.4 !important;
-    font-size: 0.85rem !important;
+    font-size: 0.8rem !important; /* 카드 제목 글자도 살짝 줄임 */
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.6)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.7)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
 # 2. 데이터 자동 수집 및 계산 엔진
-@st.cache_data(ttl=180) # 사용자가 설정한 3분(180초) 캐시 유지
+@st.cache_data(ttl=180) 
 def get_market_data():
     df_list = []
     
