@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.24)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.25)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,7 +88,7 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버
+    # [엔진 1] 야후 파이낸스 서버 (기본 지표들)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -105,7 +105,7 @@ def get_market_data():
         except:
             continue
             
-    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 개선 (날짜 씽크 맞춤)
+    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 (Timezone 충돌 완벽 방지)
     try:
         try:
             csi_ticker = yf.Ticker('399300.SZ')
@@ -121,10 +121,12 @@ def get_market_data():
         ashr_df = yf.Ticker('ASHR').history(start='2026-01-01')[['Close']]
         
         if not ashr_df.empty:
+            # 🌟 핵심 수정: 미국 ETF 데이터의 시간대(Timezone)를 먼저 완전히 제거한 뒤 비교 및 병합
+            ashr_df.index = pd.to_datetime(ashr_df.index).normalize().tz_localize(None)
+            
             ratio = csi_real_val / ashr_df['Close'].iloc[-1]
             csi_restored = ashr_df['Close'] * ratio
             
-            # 미국 ETF(ASHR) 날짜가 실제 중국 시장 날짜보다 뒤처져 있다면 최신 날짜와 데이터 강제 추가
             if csi_restored.index[-1] < csi_real_date:
                 csi_restored[csi_real_date] = csi_real_val
                 
@@ -182,7 +184,6 @@ def get_market_data():
     df.index.name = '일자'
     df.reset_index(inplace=True)
     
-    # 🌟 차트 앞부분 빈 공간 방지: 작년 12월 데이터가 끼어들었다면 잘라내기
     df = df[df['일자'] >= '2026-01-01']
     df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
     
@@ -272,31 +273,41 @@ chart_cols = st.columns(2)
 
 with chart_cols[0]:
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
-    relative_cols = ['코스피(시작=100)', 'CSI300(시작=100)', '코스닥(시작=100)', '니케이(시작=100)', 'S&P500(시작=100)', '나스닥(시작=100)']
-    chart_data_rel = df_market[['일자'] + relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
     
-    chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
+    # 🌟 에러 차단 안전장치: 현재 정상적으로 수집되어 데이터프레임에 존재하는 지수만 골라내기
+    base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
+    valid_relative_cols = [col + '(시작=100)' for col in base_cols if col + '(시작=100)' in df_market.columns]
     
-    line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
-        x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-        y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
-        tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
-    ).properties(height=350).interactive()
-    st.altair_chart(line_chart, use_container_width=True)
+    if valid_relative_cols:
+        chart_data_rel = df_market[['일자'] + valid_relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
+        chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
+        
+        line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
+            tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
+        ).properties(height=350).interactive()
+        st.altair_chart(line_chart, use_container_width=True)
+    else:
+        st.warning("현재 상대수익률 차트를 그릴 지수 데이터가 부족합니다.")
 
 with chart_cols[1]:
     st.subheader("📈 한·미 국채금리 비교")
     yield_cols = ['한국10년물', '한국30년물', '미국10년물', '미국30년물']
-    chart_data_yield = df_market[['일자'] + yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
     
-    yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
-        x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-        y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
-        tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
-    ).properties(height=350).interactive()
-    st.altair_chart(yield_chart, use_container_width=True)
+    # 안전장치: 국채 컬럼이 있는지 확인 후 그리기
+    valid_yield_cols = [col for col in yield_cols if col in df_market.columns]
+    if valid_yield_cols:
+        chart_data_yield = df_market[['일자'] + valid_yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
+        
+        yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
+            tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
+        ).properties(height=350).interactive()
+        st.altair_chart(yield_chart, use_container_width=True)
 
 st.divider()
 
@@ -304,7 +315,10 @@ st.subheader("📉 개별 지수 및 환율/원자재 추이")
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
-        
+        if chart_data.empty:
+            st.markdown(f"*{column_name} 데이터 없음*")
+            return
+            
         min_val = chart_data[column_name].min()
         max_val = chart_data[column_name].max()
         padding = (max_val - min_val) * 0.1
@@ -327,6 +341,8 @@ def draw_mini_chart(df, column_name):
         
         chart = (area + line).properties(height=180).interactive()
         st.altair_chart(chart, use_container_width=True)
+    else:
+        st.markdown(f"*{column_name} 데이터 없음*")
 
 mini_cols1 = st.columns(4)
 with mini_cols1[0]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
