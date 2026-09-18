@@ -66,7 +66,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.42)")
+st.title("📊 글로벌 마켓 대시보드 (v6.43)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -100,7 +100,7 @@ def get_market_data():
         except:
             pass 
 
-    # 🌟 [엔진 1] 야후 파이낸스 서버 (오류가 잦은 코스피, 코스닥, 니케이 제외)
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (오류가 잦은 아시아 지수 완전히 배제)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
@@ -118,8 +118,33 @@ def get_market_data():
             df_list.append(temp_df)
         except:
             continue
+
+    # 🌟 [엔진 1-1] 네이버 금융 모바일 실시간 JSON 다이렉트 통신 (한국/일본 지수 100% 방어)
+    naver_symbols = {'KOSPI': '코스피', 'KOSDAQ': '코스닥', 'NII@NI225': '니케이'}
+    for sym, name in naver_symbols.items():
+        try:
+            url = f"https://m.stock.naver.com/api/index/{sym}/price?pageSize=250&page=1"
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            resp = requests.get(url, headers=headers, timeout=5)
+            data = resp.json()
             
-    # [엔진 1-1] CSI 300 완벽 복구 알고리즘
+            records = []
+            for row in data:
+                records.append({
+                    '일자': row['localTradedAt'], 
+                    name: float(row['closePrice'].replace(',', ''))
+                })
+                
+            temp_df = pd.DataFrame(records)
+            temp_df['일자'] = pd.to_datetime(temp_df['일자'])
+            temp_df.set_index('일자', inplace=True)
+            temp_df.sort_index(inplace=True)
+            temp_df.index = temp_df.index.normalize().tz_localize(None)
+            df_list.append(temp_df)
+        except:
+            continue
+            
+    # [엔진 1-2] CSI 300 완벽 복구 알고리즘
     try:
         try:
             csi_val = yf.Ticker('399300.SZ').history(period='5d')['Close'].iloc[-1]
@@ -144,11 +169,8 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 [엔진 2] 네이버 금융 & KRX 서버 (한국 및 일본 아시아 3대 지수 안정화 배포)
+    # [엔진 2] 네이버 금융 & KRX 서버 (환율 등 보조 지표 유지)
     fdr_tickers = {
-        'KS11': '코스피', 
-        'KQ11': '코스닥', 
-        'N225': '니케이',
         'USD/KRW': '환율($/원)'
     }
     for ticker, name in fdr_tickers.items():
@@ -287,7 +309,7 @@ with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수
     본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
     장외 CFD(차액결제거래)나 실시간 브로커 데이터를 혼용하는 인베스팅닷컴과는 다음과 같은 수치 차이가 발생할 수 있습니다.
     
-    *   **아시아 지수 안정화:** 주말 야후 서버 누락을 방지하기 위해 한국(코스피/코스닥)과 일본(니케이) 지수는 네이버/KRX 기반 실시간 데이터로 교체 적용되었습니다.
+    *   **아시아 지수 완전 안정화:** 주말 서버 누락을 근본적으로 차단하기 위해 코스피, 코스닥, 니케이 지수는 네이버 금융 실시간 통신망에 다이렉트로 연결하여 무결성을 확보했습니다.
     *   **WTI 원유 & 금 (선물 월물 교체):** 원자재는 매월 만기가 있는 '선물'입니다. 대시보드(Yahoo API)와 타 사이트가 추종하는 기준 계약(최근월물 vs 차근월물)의 롤오버 시점이 다를 경우 일시적으로 가격 갭이 발생할 수 있습니다.
     *   **CSI 300 (환노출 반영):** 중국 데이터 통신망 오류를 우회하기 위해 국내 상장 추종 ETF의 과거 궤적을 활용하여 차트를 스케일링합니다.
     """)
