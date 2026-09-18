@@ -6,7 +6,7 @@ import FinanceDataReader as fdr
 import requests
 from streamlit_autorefresh import st_autorefresh 
 
-# 1. 웹페이지 기본 설정 (이름 변경)
+# 1. 웹페이지 기본 설정
 st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", initial_sidebar_state="collapsed")
 
 # 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면 새로고침
@@ -54,8 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 타이틀 변경
-st.title("📊 글로벌 마켓 대시보드 (v6.35)")
+st.title("📊 글로벌 마켓 대시보드 (v6.36)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -219,6 +218,20 @@ def get_mdd_text(mdd_val):
     else:
         return f":blue[MDD {mdd_pct:.1f}%]"
 
+# 🌟 [신규 기능] 시장 국면 판독 알고리즘 (VIX & S&P500 MDD 기반)
+def get_market_regime(latest_data):
+    vix = latest_data.get('VIX', 20)  # 데이터가 없으면 중립인 20으로 가정
+    sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
+    
+    if vix >= 30 or sp500_mdd <= -20:
+        return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 현금 비중을 늘리고 리스크 관리에 각별히 유의해야 할 시기입니다.", "error"
+    elif vix >= 20 or sp500_mdd <= -10:
+        return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 뚜렷한 조정 국면에 진입했습니다. 보수적인 포트폴리오 접근이 필요합니다.", "warning"
+    elif vix < 15 and sp500_mdd >= -3:
+        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 S&P 500이 고점 부근에 위치하여 투자 심리가 매우 안정적인 강세장입니다.", "success"
+    else:
+        return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있는 보통장입니다.", "info"
+
 # ---------------------------------------------------------
 # UI 레이아웃
 # ---------------------------------------------------------
@@ -238,6 +251,17 @@ with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수
 
 st.subheader("💡 주요 시장 지표 현황")
 
+# 🌟 시장 기상도 출력
+regime_title, regime_desc, regime_type = get_market_regime(latest_data)
+if regime_type == "error":
+    st.error(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
+elif regime_type == "warning":
+    st.warning(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
+elif regime_type == "success":
+    st.success(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
+else:
+    st.info(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
+
 st.markdown("""
 <div style='font-size: 0.85rem; color: #888; margin-bottom: 15px;'>
     <b>※ MDD 상태 가이드:</b> &nbsp;
@@ -249,28 +273,28 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🌟 1행: S&P 500, NASDAQ, 필라델피아 반도체, VIX 
+# 🌟 1행: S&P 500, NASDAQ, 필라델피아 반도체, VIX (미국 증시 & 변동성)
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
 cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
 cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", f"{latest_data.get('VIX', 0):,.2f}", changes.get('VIX', '0.00'))
 
-# 🌟 2행: 코스피, 코스닥, 니케이, CSI 300 
+# 🌟 2행: 코스피, 코스닥, 니케이, CSI 300 (아시아 증시)
 cols2 = st.columns(4)
 cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
 cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
-# 🌟 3행: 원/달러 환율, 엔/원 환율, WTI유, 금
+# 🌟 3행: 원/달러 환율, 엔/원 환율, WTI유, 금 (매크로 지표 - 환율 및 원자재)
 cols3 = st.columns(4)
 cols3[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
 cols3[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
 cols3[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 cols3[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
 
-# 🌟 4행: 미국 10년물, 미국 30년물, 한국 10년물, 한국 30년물 
+# 🌟 4행: 미국 10년물, 미국 30년물, 한국 10년물, 한국 30년물 (금리 지표 집중)
 cols4 = st.columns(4)
 cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
 cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
