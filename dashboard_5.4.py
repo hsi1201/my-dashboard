@@ -85,7 +85,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.51)")
+st.title("📊 글로벌 마켓 대시보드 (v6.52)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -322,7 +322,6 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        # 🌟 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 미사용
         chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
@@ -330,15 +329,13 @@ def draw_mini_chart(df, column_name):
 
 
 # ---------------------------------------------------------
-# UI 공통 헤더
+# 🌟 UI 공통 헤더: 알림창 단일화 (공간 최적화)
 # ---------------------------------------------------------
-
-st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준) - 3분 단위 자동 새로고침 작동 중")
-
-st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
-
-with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내 (클릭하여 열기)"):
+with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
+    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
     st.markdown("""
+    **📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내**
+    
     본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
     장외 CFD(차액결제거래)나 실시간 브로커 데이터를 혼용하는 인베스팅닷컴과는 다음과 같은 수치 차이가 발생할 수 있습니다.
     
@@ -464,7 +461,6 @@ with tab2:
             chart_data_rel = df_market[['일자'] + valid_relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
             chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
             
-            # 마우스 휠 스크롤 방지를 위해 .interactive() 제거
             line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
                 x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
                 y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
@@ -483,7 +479,6 @@ with tab2:
         if valid_yield_cols:
             chart_data_yield = df_market[['일자'] + valid_yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
             
-            # 마우스 휠 스크롤 방지를 위해 .interactive() 제거
             yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
                 x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
                 y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
