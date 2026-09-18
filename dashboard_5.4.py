@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.26)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.27)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -105,38 +105,29 @@ def get_market_data():
         except:
             continue
             
-    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 (등락률 0.00% 버그 완벽 해결)
+    # 🌟 [엔진 1-1] CSI 300 완벽 복구 알고리즘 (TIGER 차이나CSI300 국내 ETF 활용)
+    # 시차 문제와 야후 서버 버그를 원천 차단합니다.
     try:
+        # 1. 실제 CSI 300 지수의 최신 값 가져오기
         try:
-            csi_ticker = yf.Ticker('399300.SZ')
-            csi_real_df = csi_ticker.history(period='5d')['Close']
+            csi_val = yf.Ticker('399300.SZ').history(period='5d')['Close'].iloc[-1]
         except:
-            csi_ticker = yf.Ticker('000300.SS')
-            csi_real_df = csi_ticker.history(period='5d')['Close']
-            
-        csi_real_df.index = pd.to_datetime(csi_real_df.index).normalize().tz_localize(None)
-        
-        ashr_df = yf.Ticker('ASHR').history(start='2026-01-01')[['Close']]
-        
-        if not ashr_df.empty and not csi_real_df.empty:
-            ashr_df.index = pd.to_datetime(ashr_df.index).normalize().tz_localize(None)
-            
-            # 1. 두 지수가 겹치는 가장 최근 날짜를 찾아 비율(Ratio) 계산
-            shared_dates = ashr_df.index.intersection(csi_real_df.index)
-            if not shared_dates.empty:
-                ref_date = shared_dates[-1]
-                ratio = csi_real_df.loc[ref_date] / ashr_df.loc[ref_date, 'Close']
-            else:
-                ratio = csi_real_df.iloc[-1] / ashr_df['Close'].iloc[-1]
+            try:
+                csi_val = yf.Ticker('000300.SS').history(period='5d')['Close'].iloc[-1]
+            except:
+                csi_val = 4507.39 # 야후 서버 완전 먹통 시 최후의 보루
                 
-            # 2. 미국 ETF 차트 뼈대를 통째로 스케일링
-            csi_restored = ashr_df['Close'] * ratio
+        # 2. 국내 상장 CSI 300 ETF(192090) 활용 (시차가 없고 날짜가 완벽하게 들어맞음)
+        tiger_df = fdr.DataReader('192090', '2026-01-01')[['Close']]
+        
+        if not tiger_df.empty:
+            tiger_df.index = pd.to_datetime(tiger_df.index).normalize().tz_localize(None)
             
-            # 3. 최근 5일치 데이터는 '진짜 CSI 300 원본 데이터'로 덮어쓰기 (등락률 완벽 계산 목적)
-            for d, val in csi_real_df.items():
-                csi_restored[d] = val
-                
-            temp_df = pd.DataFrame(csi_restored).sort_index()
+            # 3. 스케일링을 통해 오리지널 지수 수치로 완벽 복원
+            ratio = csi_val / tiger_df['Close'].iloc[-1]
+            csi_restored = tiger_df['Close'] * ratio
+            
+            temp_df = pd.DataFrame(csi_restored)
             temp_df.columns = ['CSI300']
             temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
             df_list.append(temp_df)
