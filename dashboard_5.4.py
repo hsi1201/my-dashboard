@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.25)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.26)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -105,34 +105,39 @@ def get_market_data():
         except:
             continue
             
-    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 (Timezone 충돌 완벽 방지)
+    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 (등락률 0.00% 버그 완벽 해결)
     try:
         try:
             csi_ticker = yf.Ticker('399300.SZ')
-            csi_real_df = csi_ticker.history(period='5d')
-            csi_real_val = csi_real_df['Close'].iloc[-1]
-            csi_real_date = pd.to_datetime(csi_real_df.index[-1]).normalize().tz_localize(None)
+            csi_real_df = csi_ticker.history(period='5d')['Close']
         except:
             csi_ticker = yf.Ticker('000300.SS')
-            csi_real_df = csi_ticker.history(period='5d')
-            csi_real_val = csi_real_df['Close'].iloc[-1]
-            csi_real_date = pd.to_datetime(csi_real_df.index[-1]).normalize().tz_localize(None)
+            csi_real_df = csi_ticker.history(period='5d')['Close']
             
+        csi_real_df.index = pd.to_datetime(csi_real_df.index).normalize().tz_localize(None)
+        
         ashr_df = yf.Ticker('ASHR').history(start='2026-01-01')[['Close']]
         
-        if not ashr_df.empty:
-            # 🌟 핵심 수정: 미국 ETF 데이터의 시간대(Timezone)를 먼저 완전히 제거한 뒤 비교 및 병합
+        if not ashr_df.empty and not csi_real_df.empty:
             ashr_df.index = pd.to_datetime(ashr_df.index).normalize().tz_localize(None)
             
-            ratio = csi_real_val / ashr_df['Close'].iloc[-1]
+            # 1. 두 지수가 겹치는 가장 최근 날짜를 찾아 비율(Ratio) 계산
+            shared_dates = ashr_df.index.intersection(csi_real_df.index)
+            if not shared_dates.empty:
+                ref_date = shared_dates[-1]
+                ratio = csi_real_df.loc[ref_date] / ashr_df.loc[ref_date, 'Close']
+            else:
+                ratio = csi_real_df.iloc[-1] / ashr_df['Close'].iloc[-1]
+                
+            # 2. 미국 ETF 차트 뼈대를 통째로 스케일링
             csi_restored = ashr_df['Close'] * ratio
             
-            if csi_restored.index[-1] < csi_real_date:
-                csi_restored[csi_real_date] = csi_real_val
+            # 3. 최근 5일치 데이터는 '진짜 CSI 300 원본 데이터'로 덮어쓰기 (등락률 완벽 계산 목적)
+            for d, val in csi_real_df.items():
+                csi_restored[d] = val
                 
-            temp_df = pd.DataFrame(csi_restored)
+            temp_df = pd.DataFrame(csi_restored).sort_index()
             temp_df.columns = ['CSI300']
-            temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
             temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
             df_list.append(temp_df)
     except:
@@ -274,7 +279,6 @@ chart_cols = st.columns(2)
 with chart_cols[0]:
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
     
-    # 🌟 에러 차단 안전장치: 현재 정상적으로 수집되어 데이터프레임에 존재하는 지수만 골라내기
     base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
     valid_relative_cols = [col + '(시작=100)' for col in base_cols if col + '(시작=100)' in df_market.columns]
     
@@ -296,7 +300,6 @@ with chart_cols[1]:
     st.subheader("📈 한·미 국채금리 비교")
     yield_cols = ['한국10년물', '한국30년물', '미국10년물', '미국30년물']
     
-    # 안전장치: 국채 컬럼이 있는지 확인 후 그리기
     valid_yield_cols = [col for col in yield_cols if col in df_market.columns]
     if valid_yield_cols:
         chart_data_yield = df_market[['일자'] + valid_yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
