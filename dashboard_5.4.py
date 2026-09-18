@@ -65,7 +65,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.38)")
+st.title("📊 글로벌 마켓 대시보드 (v6.39)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -292,7 +292,6 @@ with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수
 
 st.subheader("💡 주요 시장 지표 현황")
 
-# 🌟 [신규 레이아웃] 시장 기상도와 캘린더 알림판을 2:1 비율로 나란히 배치
 weather_col, cal_col = st.columns([2, 1])
 
 with weather_col:
@@ -307,11 +306,10 @@ with weather_col:
         st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
 
 with cal_col:
-    # 🌟 일정판 내용 (필요시 이 텍스트만 쓱쓱 수정하시면 됩니다)
+    # 🌟 [수정된 최신 일정] 일본 BOJ 금리 결정 및 금주 핵심 이벤트 반영
     st.info("📅 **이번 주 주요 매크로 일정**\n"
             "- **09/16 (수):** 미국 8월 소매판매 발표\n"
-            "- **09/18 (금):** 미국 선물옵션 동시만기일 (네 마녀의 날)\n"
-            "- **09/22 (화):** 일본 BOJ 기준금리 결정")
+            "- **09/18 (금):** 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날")
 
 st.markdown("""
 <div style='font-size: 0.85rem; color: #888; margin-bottom: 15px;'>
