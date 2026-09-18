@@ -4,6 +4,7 @@ import altair as alt
 import yfinance as yf
 import FinanceDataReader as fdr
 import requests
+import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh 
 
 # 1. 웹페이지 기본 설정
@@ -51,10 +52,20 @@ h1 {
     line-height: 1.4 !important;
     font-size: 0.8rem !important; 
 }
+/* 뉴스 링크 스타일 */
+.news-link {
+    text-decoration: none;
+    color: #1E88E5;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+.news-link:hover {
+    text-decoration: underline;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.36)")
+st.title("📊 글로벌 마켓 대시보드 (v6.37)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -205,6 +216,39 @@ def get_market_data():
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
+# 🌟 [신규 엔진] 구글 뉴스 실시간 크롤링 (국내/해외 경제)
+@st.cache_data(ttl=600) # 뉴스는 10분 단위로 캐싱하여 트래픽 부담 완화
+def get_news_data():
+    news_dict = {"KR": [], "US": []}
+    
+    # 구글 뉴스 RSS URL (비즈니스/경제 섹션)
+    kr_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko"
+    us_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"
+    
+    try:
+        kr_resp = requests.get(kr_url, timeout=5)
+        kr_root = ET.fromstring(kr_resp.content)
+        for item in kr_root.findall('.//item')[:5]: # 최신 5개 추출
+            title = item.find('title').text
+            link = item.find('link').text
+            news_dict["KR"].append({"title": title, "link": link})
+    except:
+        news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
+        
+    try:
+        us_resp = requests.get(us_url, timeout=5)
+        us_root = ET.fromstring(us_resp.content)
+        for item in us_root.findall('.//item')[:5]:
+            title = item.find('title').text
+            link = item.find('link').text
+            news_dict["US"].append({"title": title, "link": link})
+    except:
+        news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
+        
+    return news_dict
+
+news_data = get_news_data()
+
 def get_mdd_text(mdd_val):
     mdd_pct = mdd_val * 100
     if mdd_pct >= -10:
@@ -218,9 +262,8 @@ def get_mdd_text(mdd_val):
     else:
         return f":blue[MDD {mdd_pct:.1f}%]"
 
-# 🌟 [신규 기능] 시장 국면 판독 알고리즘 (VIX & S&P500 MDD 기반)
 def get_market_regime(latest_data):
-    vix = latest_data.get('VIX', 20)  # 데이터가 없으면 중립인 20으로 가정
+    vix = latest_data.get('VIX', 20)  
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
     
     if vix >= 30 or sp500_mdd <= -20:
@@ -251,7 +294,6 @@ with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수
 
 st.subheader("💡 주요 시장 지표 현황")
 
-# 🌟 시장 기상도 출력
 regime_title, regime_desc, regime_type = get_market_regime(latest_data)
 if regime_type == "error":
     st.error(f"**현재 시장 기상도:** {regime_title} - {regime_desc}")
@@ -273,28 +315,24 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🌟 1행: S&P 500, NASDAQ, 필라델피아 반도체, VIX (미국 증시 & 변동성)
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
 cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
 cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", f"{latest_data.get('VIX', 0):,.2f}", changes.get('VIX', '0.00'))
 
-# 🌟 2행: 코스피, 코스닥, 니케이, CSI 300 (아시아 증시)
 cols2 = st.columns(4)
 cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
 cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
-# 🌟 3행: 원/달러 환율, 엔/원 환율, WTI유, 금 (매크로 지표 - 환율 및 원자재)
 cols3 = st.columns(4)
 cols3[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
 cols3[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
 cols3[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 cols3[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
 
-# 🌟 4행: 미국 10년물, 미국 30년물, 한국 10년물, 한국 30년물 (금리 지표 집중)
 cols4 = st.columns(4)
 cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
 cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
@@ -376,30 +414,42 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 1행 미니 차트 (미국 & 반도체/VIX)
 mini_cols1 = st.columns(4)
 with mini_cols1[0]: st.markdown(f"**S&P 500** `({last_dates.get('S&P500', '-')})`"); draw_mini_chart(df_market, 'S&P500')
 with mini_cols1[1]: st.markdown(f"**나스닥** `({last_dates.get('나스닥', '-')})`"); draw_mini_chart(df_market, '나스닥')
 with mini_cols1[2]: st.markdown(f"**필라델피아 반도체** `({last_dates.get('필라델피아 반도체', '-')})`"); draw_mini_chart(df_market, '필라델피아 반도체')
 with mini_cols1[3]: st.markdown(f"**VIX 지수** `({last_dates.get('VIX', '-')})`"); draw_mini_chart(df_market, 'VIX')
 
-# 🌟 2행 미니 차트 (아시아)
 mini_cols2 = st.columns(4)
 with mini_cols2[0]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
 with mini_cols2[1]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
 with mini_cols2[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
 with mini_cols2[3]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
 
-# 🌟 3행 미니 차트 (환율 & 원자재 유지)
 mini_cols3 = st.columns(4)
 with mini_cols3[0]: st.markdown(f"**원/달러 환율** `({last_dates.get('환율($/원)', '-')})`"); draw_mini_chart(df_market, '환율($/원)')
 with mini_cols3[1]: st.markdown(f"**엔/원 환율 (100엔)** `({last_dates.get('엔/원 환율', '-')})`"); draw_mini_chart(df_market, '엔/원 환율')
 with mini_cols3[2]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
 with mini_cols3[3]: st.markdown(f"**금 (Gold)** `({last_dates.get('금', '-')})`"); draw_mini_chart(df_market, '금')
 
-# 🌟 4행 미니 차트 (국채 금리 유지)
 mini_cols4 = st.columns(4)
 with mini_cols4[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국10년물', '-')})`"); draw_mini_chart(df_market, '미국10년물')
 with mini_cols4[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
 with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
 with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
+
+# 🌟 5. [신규 섹션] 실시간 주요 경제 뉴스 하단 추가
+st.divider()
+st.subheader("📰 실시간 주요 경제 뉴스 (Google News 제공)")
+
+news_col1, news_col2 = st.columns(2)
+
+with news_col1:
+    st.markdown("##### 🇰🇷 국내 경제/비즈니스")
+    for news in news_data["KR"]:
+        st.markdown(f"- <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+
+with news_col2:
+    st.markdown("##### 🌎 글로벌 경제/비즈니스")
+    for news in news_data["US"]:
+        st.markdown(f"- <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
