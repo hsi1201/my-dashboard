@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.28)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.29)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,16 +88,22 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (VIX, 필라델피아 반도체, 금, 엔/원 환율 추가)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
         '^KS11': '코스피', '^KQ11': '코스닥', 
-        'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
+        'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
+        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율'
     }
     for ticker, name in yf_tickers.items():
         try:
             temp_df = yf.Ticker(ticker).history(start='2026-01-01')[['Close']]
+            
+            # 🌟 엔/원 환율은 100엔 기준으로 보기 편하게 100을 곱해줍니다.
+            if name == '엔/원 환율':
+                temp_df['Close'] = temp_df['Close'] * 100
+                
             temp_df.columns = [name]
             temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
             temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
@@ -186,7 +192,8 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
+    # 🌟 상대수익률 비교에 필라델피아 반도체 추가
+    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥', '필라델피아 반도체']
     for col in relative_cols:
         if col in df.columns:
             first_val = df[col].iloc[0]
@@ -220,15 +227,14 @@ def get_mdd_text(mdd_val):
 
 st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준) - 3분 단위 자동 새로고침 작동 중")
 
-# 🌟 [개선된 안내문] 인베스팅닷컴 등 타 사이트와의 수치 불일치 사유 명시
-with st.expander("📌 데이터 소스 및 인베스팅닷컴(Investing.com) 수치 차이 안내 (클릭하여 열기)"):
+with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내 (클릭하여 열기)"):
     st.markdown("""
     본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
     장외 CFD(차액결제거래)나 실시간 브로커 데이터를 혼용하는 인베스팅닷컴과는 다음과 같은 수치 차이가 발생할 수 있습니다.
     
-    *   **WTI 원유 (선물 월물 교체):** 원유는 매월 만기가 있는 '선물'입니다. 대시보드(Yahoo API)와 타 사이트가 추종하는 기준 계약(최근월물 vs 차근월물)의 롤오버 시점이 다를 경우 일시적으로 큰 가격 갭이 발생할 수 있습니다.
-    *   **CSI 300 (환노출 반영):** 중국 데이터 통신망 오류를 우회하기 위해 국내 상장 추종 ETF의 과거 궤적을 활용하여 차트를 스케일링합니다. 이 과정에서 '위안화/원화 환율 변동분'이 반영되어 순수 중국 지수와 당일 등락률(%)에 미세한 차이가 발생합니다.
-    *   **해외 지수 (15분 지연):** 야후 파이낸스 무료 API 규정상 니케이 225 등 일부 지수는 거래소 원천 데이터 규정에 따라 15~20분 지연(Delay) 송출될 수 있습니다.
+    *   **WTI 원유 & 금 (선물 월물 교체):** 원자재는 매월 만기가 있는 '선물'입니다. 대시보드(Yahoo API)와 타 사이트가 추종하는 기준 계약(최근월물 vs 차근월물)의 롤오버 시점이 다를 경우 일시적으로 가격 갭이 발생할 수 있습니다.
+    *   **CSI 300 (환노출 반영):** 중국 데이터 통신망 오류를 우회하기 위해 국내 상장 추종 ETF의 과거 궤적을 활용하여 차트를 스케일링합니다. 이 과정에서 '위안화/원화 환율 변동분'이 반영되어 당일 등락률(%)에 미세한 차이가 발생합니다.
+    *   **해외 지수 (15분 지연):** 야후 파이낸스 무료 API 규정상 니케이 225, VIX 등 일부 지수는 거래소 원천 데이터 규정에 따라 15~20분 지연(Delay) 송출될 수 있습니다.
     *   **국채 금리 (공식 통계 vs 실시간):** 본 대시보드의 한국 국채는 하루 1회 확정되는 **'한국은행 ECOS 공식 마감 통계'**를, 미국 국채는 **'미국 CBOE 공식 마감 금리'**를 사용하므로 장중 계속 변하는 장외 채권 호가와는 차이가 있습니다.
     """)
 
@@ -263,6 +269,13 @@ cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"
 cols3[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
 cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
 
+# 🌟 4행: 시장 심리 & 핵심 섹터 패키지 추가 (VIX, SOX, 금, 엔/원 환율)
+cols4 = st.columns(4)
+cols4[0].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", f"{latest_data.get('VIX', 0):,.2f}", changes.get('VIX', '0.00'))
+cols4[1].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
+cols4[2].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
+cols4[3].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
+
 st.divider()
 
 chart_cols = st.columns(2)
@@ -270,7 +283,8 @@ chart_cols = st.columns(2)
 with chart_cols[0]:
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
     
-    base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
+    # 🌟 차트에도 필라델피아 반도체 추가
+    base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥', '필라델피아 반도체']
     valid_relative_cols = [col + '(시작=100)' for col in base_cols if col + '(시작=100)' in df_market.columns]
     
     if valid_relative_cols:
@@ -280,7 +294,8 @@ with chart_cols[0]:
         line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
             y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-            color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
+            # 🌟 항목이 7개로 늘어났으므로 하단 범례를 4칸으로 나누어 2줄로 예쁘게 배치
+            color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=4)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=350).interactive()
         st.altair_chart(line_chart, use_container_width=True)
@@ -355,3 +370,10 @@ with mini_cols3[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국1
 with mini_cols3[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
 with mini_cols3[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
 with mini_cols3[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
+
+# 🌟 4행: 하단 미니 차트에도 신규 4종목 완벽 적용
+mini_cols4 = st.columns(4)
+with mini_cols4[0]: st.markdown(f"**VIX 지수** `({last_dates.get('VIX', '-')})`"); draw_mini_chart(df_market, 'VIX')
+with mini_cols4[1]: st.markdown(f"**필라델피아 반도체** `({last_dates.get('필라델피아 반도체', '-')})`"); draw_mini_chart(df_market, '필라델피아 반도체')
+with mini_cols4[2]: st.markdown(f"**금 (Gold)** `({last_dates.get('금', '-')})`"); draw_mini_chart(df_market, '금')
+with mini_cols4[3]: st.markdown(f"**엔/원 환율 (100엔)** `({last_dates.get('엔/원 환율', '-')})`"); draw_mini_chart(df_market, '엔/원 환율')
