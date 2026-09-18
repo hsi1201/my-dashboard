@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.23)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.24)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,7 +88,7 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버 (기본 지표들)
+    # [엔진 1] 야후 파이낸스 서버
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -105,19 +105,29 @@ def get_market_data():
         except:
             continue
             
-    # [엔진 1-1] 특수 복원 알고리즘: 야후 서버 버그로 증발한 CSI 300 과거 데이터 복구
+    # 🌟 [엔진 1-1] CSI 300 과거 데이터 복구 알고리즘 개선 (날짜 씽크 맞춤)
     try:
         try:
-            csi_real_val = yf.Ticker('000300.SS').history(period='5d')['Close'].iloc[-1]
+            csi_ticker = yf.Ticker('399300.SZ')
+            csi_real_df = csi_ticker.history(period='5d')
+            csi_real_val = csi_real_df['Close'].iloc[-1]
+            csi_real_date = pd.to_datetime(csi_real_df.index[-1]).normalize().tz_localize(None)
         except:
-            csi_real_val = yf.Ticker('399300.SZ').history(period='5d')['Close'].iloc[-1]
-        
+            csi_ticker = yf.Ticker('000300.SS')
+            csi_real_df = csi_ticker.history(period='5d')
+            csi_real_val = csi_real_df['Close'].iloc[-1]
+            csi_real_date = pd.to_datetime(csi_real_df.index[-1]).normalize().tz_localize(None)
+            
         ashr_df = yf.Ticker('ASHR').history(start='2026-01-01')[['Close']]
         
         if not ashr_df.empty:
             ratio = csi_real_val / ashr_df['Close'].iloc[-1]
             csi_restored = ashr_df['Close'] * ratio
             
+            # 미국 ETF(ASHR) 날짜가 실제 중국 시장 날짜보다 뒤처져 있다면 최신 날짜와 데이터 강제 추가
+            if csi_restored.index[-1] < csi_real_date:
+                csi_restored[csi_real_date] = csi_real_val
+                
             temp_df = pd.DataFrame(csi_restored)
             temp_df.columns = ['CSI300']
             temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
@@ -172,6 +182,8 @@ def get_market_data():
     df.index.name = '일자'
     df.reset_index(inplace=True)
     
+    # 🌟 차트 앞부분 빈 공간 방지: 작년 12월 데이터가 끼어들었다면 잘라내기
+    df = df[df['일자'] >= '2026-01-01']
     df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
     
     if '한국10년물' not in df.columns: df['한국10년물'] = 3.123 
@@ -236,21 +248,18 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🌟 [배치 수정] 1행: 코스피, 코스닥, 니케이, CSI
 cols1 = st.columns(4)
 cols1[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols1[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
 cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols1[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
-# 🌟 [배치 수정] 2행: S&P, 나스닥, 환율, WTI
 cols2 = st.columns(4)
 cols2[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols2[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
 cols2[2].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
 cols2[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
-# 🌟 3행: 그대로 (국채 4종목)
 cols3 = st.columns(4)
 cols3[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
 cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
@@ -319,21 +328,18 @@ def draw_mini_chart(df, column_name):
         chart = (area + line).properties(height=180).interactive()
         st.altair_chart(chart, use_container_width=True)
 
-# 🌟 [미니 차트 배치 수정] 1행: 코스피, 코스닥, 니케이, CSI
 mini_cols1 = st.columns(4)
 with mini_cols1[0]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
 with mini_cols1[1]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
 with mini_cols1[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
 with mini_cols1[3]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
 
-# 🌟 [미니 차트 배치 수정] 2행: S&P, 나스닥, 환율, WTI
 mini_cols2 = st.columns(4)
 with mini_cols2[0]: st.markdown(f"**S&P 500** `({last_dates.get('S&P500', '-')})`"); draw_mini_chart(df_market, 'S&P500')
 with mini_cols2[1]: st.markdown(f"**나스닥** `({last_dates.get('나스닥', '-')})`"); draw_mini_chart(df_market, '나스닥')
 with mini_cols2[2]: st.markdown(f"**원/달러 환율** `({last_dates.get('환율($/원)', '-')})`"); draw_mini_chart(df_market, '환율($/원)')
 with mini_cols2[3]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
 
-# 🌟 3행: 그대로 (국채 4종목)
 mini_cols3 = st.columns(4)
 with mini_cols3[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국10년물', '-')})`"); draw_mini_chart(df_market, '미국10년물')
 with mini_cols3[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
