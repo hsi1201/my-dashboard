@@ -33,12 +33,12 @@ h1 {
     padding-bottom: 0.2rem !important;
 }
 
-/* 카드 UI 기본 설정 (기존 유지) */
+/* 카드 UI 기본 설정 */
 [data-testid="stMetric"] {
     background-color: rgba(130, 130, 130, 0.05);
     border: 1px solid rgba(130, 130, 130, 0.2);
     border-radius: 12px;
-    padding: 12px; /* 카드 내부 여백도 살짝 줄여서 압축 */
+    padding: 12px; 
     box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.05);
     transition: transform 0.2s ease-in-out;
 }
@@ -54,12 +54,12 @@ h1 {
     overflow: visible !important;
     text-overflow: clip !important;
     line-height: 1.4 !important;
-    font-size: 0.8rem !important; /* 카드 제목 글자도 살짝 줄임 */
+    font-size: 0.8rem !important; 
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.7)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.8)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -93,9 +93,10 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (니케이 실제 지수 '^N225' 추가)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
+        '^N225': '니케이', # 니케이 225 실제 지수 연동
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
     }
     for ticker, name in yf_tickers.items():
@@ -108,12 +109,11 @@ def get_market_data():
         except:
             continue
 
-    # [엔진 2] 네이버 금융 & KRX 서버
+    # 🌟 [엔진 2] 네이버 금융 & KRX 서버 (니케이 ETF 제거)
     fdr_tickers = {
         'KS11': '코스피', 
         'KS200': '코스피200', 
         'KQ11': '코스닥', 
-        '241180': '니케이', 
         'USD/KRW': '환율($/원)'
     }
     for ticker, name in fdr_tickers.items():
@@ -145,11 +145,10 @@ def get_market_data():
             prev = curr = 0
             
         diff = curr - prev 
+        
+        # 🌟 니케이도 실제 지수로 바뀌었으므로 일관성 있게 소수점 2자리로 통일 처리
         if '년물' in col: 
             changes[col] = f"{diff:+.3f}%p"
-        elif col == '니케이':
-            pct = (diff / prev) * 100 if prev != 0 else 0
-            changes[col] = f"{diff:+.0f} ({pct:+.2f}%)"
         else: 
             pct = (diff / prev) * 100 if prev != 0 else 0
             changes[col] = f"{diff:+.2f} ({pct:+.2f}%)"
@@ -218,7 +217,8 @@ st.markdown("""
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
-cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.0f}", changes.get('니케이', '0.00'))
+# 🌟 니케이 카드 표시 형식도 실제 지수에 맞춰 소수점 2자리로 통일
+cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
 cols2 = st.columns(4)
@@ -294,7 +294,7 @@ def draw_mini_chart(df, column_name):
 mini_cols1 = st.columns(4)
 with mini_cols1[0]: st.markdown(f"**S&P 500** `({last_dates.get('S&P500', '-')})`"); draw_mini_chart(df_market, 'S&P500')
 with mini_cols1[1]: st.markdown(f"**나스닥** `({last_dates.get('나스닥', '-')})`"); draw_mini_chart(df_market, '나스닥')
-with mini_cols1[2]: st.markdown(f"**니케이 225 (ETF)** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
+with mini_cols1[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
 with mini_cols1[3]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
 
 mini_cols2 = st.columns(4)
