@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.18)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.19)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,7 +88,7 @@ def get_market_data():
         except:
             pass 
 
-    # 🌟 [엔진 1] 야후 파이낸스 서버 (CSI 300 지수 추가)
+    # 🌟 [엔진 1] 야후 파이낸스 서버
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', '000300.SS': 'CSI300',
@@ -97,7 +97,8 @@ def get_market_data():
     }
     for ticker, name in yf_tickers.items():
         try:
-            temp_df = yf.Ticker(ticker).history(period='ytd')[['Close']]
+            # 🌟 YTD 버그 우회: period='ytd' 대신 start='2026-01-01'로 명시적 과거 데이터 호출
+            temp_df = yf.Ticker(ticker).history(start='2026-01-01')[['Close']]
             temp_df.columns = [name]
             temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
             temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
@@ -105,7 +106,7 @@ def get_market_data():
         except:
             continue
 
-    # [엔진 2] 네이버 금융 & KRX 서버 (코스피 200 제거)
+    # [엔진 2] 네이버 금융 & KRX 서버
     fdr_tickers = {
         'USD/KRW': '환율($/원)'
     }
@@ -161,7 +162,6 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    # 🌟 상대수익률 기준 열에 CSI300 반영
     relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
     for col in relative_cols:
         if col in df.columns:
@@ -223,7 +223,6 @@ cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text
 cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
 cols2 = st.columns(4)
-# 🌟 코스피 200 자리에 CSI 300 카드 배치
 cols2[0].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 cols2[1].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols2[2].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
@@ -241,7 +240,6 @@ chart_cols = st.columns(2)
 
 with chart_cols[0]:
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
-    # 🌟 상대수익률 차트에 CSI 300 반영
     relative_cols = ['코스피(시작=100)', 'CSI300(시작=100)', '코스닥(시작=100)', '니케이(시작=100)', 'S&P500(시작=100)', '나스닥(시작=100)']
     chart_data_rel = df_market[['일자'] + relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
     
@@ -305,7 +303,6 @@ with mini_cols1[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이
 with mini_cols1[3]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
 
 mini_cols2 = st.columns(4)
-# 🌟 하단 미니 차트에서도 CSI 300으로 교체
 with mini_cols2[0]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
 with mini_cols2[1]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
 with mini_cols2[2]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
