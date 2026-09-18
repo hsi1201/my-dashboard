@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.33)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.34)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -190,7 +190,8 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥', '필라델피아 반도체']
+    # 🌟 상대수익률 비교에서 필라델피아 반도체 제거 (차트 깔끔화)
+    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
     for col in relative_cols:
         if col in df.columns:
             first_val = df[col].iloc[0]
@@ -248,28 +249,28 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🌟 1행: S&P 500, NASDAQ, 필라델피아 반도체, VIX (미국 증시 & 변동성을 최상단으로 끌어올림)
+# 🌟 1행: S&P 500, NASDAQ, 필라델피아 반도체, VIX (미국 증시 & 변동성)
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
 cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
 cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", f"{latest_data.get('VIX', 0):,.2f}", changes.get('VIX', '0.00'))
 
-# 🌟 2행: 코스피, 코스닥, 니케이, CSI 300 (아시아 증시를 2행으로 내림)
+# 🌟 2행: 코스피, 코스닥, 니케이, CSI 300 (아시아 증시)
 cols2 = st.columns(4)
 cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
 cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
 cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
-# 🌟 3행: 원/달러 환율, 엔/원 환율, WTI유, 금 (그대로 유지)
+# 🌟 3행: 원/달러 환율, 엔/원 환율, WTI유, 금 (매크로 지표 - 환율 및 원자재)
 cols3 = st.columns(4)
 cols3[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
 cols3[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
 cols3[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 cols3[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
 
-# 🌟 4행: 미국 10년물, 미국 30년물, 한국 10년물, 한국 30년물 (그대로 유지)
+# 🌟 4행: 미국 10년물, 미국 30년물, 한국 10년물, 한국 30년물 (금리 지표 집중)
 cols4 = st.columns(4)
 cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
 cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
@@ -283,7 +284,8 @@ chart_cols = st.columns(2)
 with chart_cols[0]:
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
     
-    base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥', '필라델피아 반도체']
+    # 🌟 상대수익률 차트에서 필라델피아 반도체 제외 (6개 지수)
+    base_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
     valid_relative_cols = [col + '(시작=100)' for col in base_cols if col + '(시작=100)' in df_market.columns]
     
     if valid_relative_cols:
@@ -293,7 +295,7 @@ with chart_cols[0]:
         line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
             y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-            color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=4)),
+            color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)), # 🌟 범례 3칸으로 복구
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=350).interactive()
         st.altair_chart(line_chart, use_container_width=True)
