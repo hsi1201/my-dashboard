@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.16)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.17)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -236,33 +236,36 @@ cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"
 
 st.divider()
 
-# 🌟 [수정 완료] 차트는 다시 2분할(좌우)로 배치하고, 범례(Legend)만 다단(columns)으로 나눠서 글자 잘림 방지
 chart_cols = st.columns(2)
 
 with chart_cols[0]:
-    st.subheader("📊 주요 지수 상대수익률 비교 (1월 1일=100)")
+    # 🌟 1. 제목이 두 줄이 되지 않도록 압축
+    st.subheader("📊 주요 지수 상대수익률 (YTD)")
     relative_cols = ['코스피(시작=100)', '코스피200(시작=100)', '코스닥(시작=100)', '니케이(시작=100)', 'S&P500(시작=100)', '나스닥(시작=100)']
     chart_data_rel = df_market[['일자'] + relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
+    
+    # 🌟 2. 범례에 들어가는 텍스트 다이어트: '(시작=100)' 문구 제거
+    chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
+    
     line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
         x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
         y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        # 🌟 범례를 3칸씩(columns=3) 나누어 강제로 두 줄로 만듦
         color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
-    ).interactive()
+    ).properties(height=350).interactive() # 🌟 3. 양쪽 차트 높이를 350px로 강제 고정
     st.altair_chart(line_chart, use_container_width=True)
 
 with chart_cols[1]:
-    st.subheader("📈 한·미 국채금리 비교 (10Y / 30Y)")
+    st.subheader("📈 한·미 국채금리 비교")
     yield_cols = ['한국10년물', '한국30년물', '미국10년물', '미국30년물']
     chart_data_yield = df_market[['일자'] + yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
+    
     yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
         x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
         y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-        # 🌟 범례를 2칸씩(columns=2) 나누어 강제로 두 줄로 만듦
         color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
-    ).interactive()
+    ).properties(height=350).interactive() # 🌟 3. 양쪽 차트 높이를 350px로 강제 고정
     st.altair_chart(yield_chart, use_container_width=True)
 
 st.divider()
