@@ -16,17 +16,10 @@ st_autorefresh(interval=180000, limit=10000, key="data_refresh")
 # 🌟 [디자인 1] CSS 주입: 헤더 메뉴는 살려두고 여백만 압축 및 탭 디자인 정비
 st.markdown("""
 <style>
-/* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 (메뉴바와 겹치지 않게 상단 여백 소폭 확보) */
+/* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 */
 .block-container {
-    padding-top: 3rem !important; 
+    padding-top: 2rem !important; 
     padding-bottom: 1.5rem !important;
-}
-
-/* 메인 타이틀(h1) 글자 크기 축소 및 아래쪽 여백 줄이기 */
-h1 {
-    font-size: 1.6rem !important;
-    padding-top: 0 !important;
-    padding-bottom: 0.2rem !important;
 }
 
 /* 카드 UI 기본 설정 */
@@ -87,9 +80,14 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.53)")
-st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
-st.divider()
+# 🌟 압축형 커스텀 헤더 적용 (여백 최소화)
+st.markdown("""
+<div style="margin-top: -15px; margin-bottom: 10px;">
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.54)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
+</div>
+""", unsafe_allow_html=True)
+
 
 # 2. 데이터 자동 수집 및 계산 엔진
 @st.cache_data(ttl=180) 
@@ -239,7 +237,7 @@ def get_market_data():
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
-# [신규 엔진] 구글 뉴스 실시간 크롤링 (Top 10 확장)
+# [신규 엔진] 구글 뉴스 실시간 크롤링
 @st.cache_data(ttl=600) 
 def get_news_data():
     news_dict = {"KR": [], "US": []}
@@ -249,7 +247,6 @@ def get_news_data():
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        # 🌟 노출 기사 수 5개 -> 10개로 상향
         for item in kr_root.findall('.//item')[:10]: 
             title = item.find('title').text
             link = item.find('link').text
@@ -260,7 +257,6 @@ def get_news_data():
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
-        # 🌟 노출 기사 수 5개 -> 10개로 상향
         for item in us_root.findall('.//item')[:10]:
             title = item.find('title').text
             link = item.find('link').text
@@ -298,7 +294,6 @@ def get_market_regime(latest_data):
     else:
         return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
-# 미니 차트 그리기 함수 (전역 배치)
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -326,12 +321,10 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        # 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 미사용
         chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
-
 
 # ---------------------------------------------------------
 # UI 공통 헤더: 알림창 단일화
@@ -527,7 +520,6 @@ with tab3:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
 
-    # 🌟 늘어난 10개의 리스트에 맞춰 간격을 쾌적하게 렌더링
     with news_col1:
         st.markdown("##### 🇰🇷 국내 경제/비즈니스 (Top 10)")
         for news in news_data["KR"]:
