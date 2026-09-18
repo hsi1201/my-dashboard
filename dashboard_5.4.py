@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.19)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.20)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,16 +88,15 @@ def get_market_data():
         except:
             pass 
 
-    # 🌟 [엔진 1] 야후 파이낸스 서버
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (상해 000300.SS 대신 과거 데이터가 확실한 심천 399300.SZ 사용)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
-        '^N225': '니케이', '000300.SS': 'CSI300',
+        '^N225': '니케이', '399300.SZ': 'CSI300', 
         '^KS11': '코스피', '^KQ11': '코스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
     }
     for ticker, name in yf_tickers.items():
         try:
-            # 🌟 YTD 버그 우회: period='ytd' 대신 start='2026-01-01'로 명시적 과거 데이터 호출
             temp_df = yf.Ticker(ticker).history(start='2026-01-01')[['Close']]
             temp_df.columns = [name]
             temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
