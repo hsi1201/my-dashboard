@@ -78,7 +78,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.49)")
+st.title("📊 글로벌 마켓 대시보드 (v6.50)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -309,7 +309,7 @@ st.subheader("💡 주요 시장 지표 현황")
 
 weather_col, cal_col = st.columns([2, 1])
 
-# 🌟 기상도별 테마형 ETF 추천 추가 적용
+# 🌟 기상도별 테마형 ETF 추천
 with weather_col:
     regime_title, regime_desc, regime_type = get_market_regime(latest_data)
     if regime_type == "error":
@@ -410,12 +410,13 @@ with chart_cols[0]:
         chart_data_rel = df_market[['일자'] + valid_relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
         chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
         
+        # 🌟 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 제거
         line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
             y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
             color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
-        ).properties(height=350).interactive()
+        ).properties(height=350)
         st.altair_chart(line_chart, use_container_width=True)
     else:
         st.warning("현재 상대수익률 차트를 그릴 지수 데이터가 부족합니다.")
@@ -428,12 +429,13 @@ with chart_cols[1]:
     if valid_yield_cols:
         chart_data_yield = df_market[['일자'] + valid_yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
         
+        # 🌟 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 제거
         yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
             y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
             color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
-        ).properties(height=350).interactive()
+        ).properties(height=350)
         st.altair_chart(yield_chart, use_container_width=True)
 
 st.divider()
@@ -466,7 +468,8 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        chart = (area + line).properties(height=180).interactive()
+        # 🌟 마우스 휠 스크롤 방지를 위해 .interactive() 제거
+        chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
