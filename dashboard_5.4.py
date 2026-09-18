@@ -54,7 +54,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.17)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.18)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -88,10 +88,10 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (CSI 300 지수 추가)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
-        '^N225': '니케이', 
+        '^N225': '니케이', '000300.SS': 'CSI300',
         '^KS11': '코스피', '^KQ11': '코스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
     }
@@ -105,9 +105,8 @@ def get_market_data():
         except:
             continue
 
-    # [엔진 2] 네이버 금융 & KRX 서버 
+    # [엔진 2] 네이버 금융 & KRX 서버 (코스피 200 제거)
     fdr_tickers = {
-        'KS200': '코스피200', 
         'USD/KRW': '환율($/원)'
     }
     for ticker, name in fdr_tickers.items():
@@ -162,7 +161,8 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    relative_cols = ['코스피', '코스피200', '코스닥', '니케이', 'S&P500', '나스닥']
+    # 🌟 상대수익률 기준 열에 CSI300 반영
+    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
     for col in relative_cols:
         if col in df.columns:
             first_val = df[col].iloc[0]
@@ -199,8 +199,8 @@ st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간
 with st.expander("📌 데이터 업데이트 기준 및 시차 안내 (클릭하여 열기)"):
     st.markdown("""
     - **미국 증시 & 국채 (S&P 500, 나스닥, 미국 10년/30년물):** 한국 시간 기준 낮(야간)에는 미국 정규장이 닫혀 있어 전일 마감가로 고정되며, 오늘 밤 미국 본장이 개장하면 실시간 반영됩니다.
-    - **한국 증시 & 환율 (코스피, 코스닥, 니케이 225, 원/달러):** 아시아 장 개장 시간 동안 실시간(또는 15분 지연)으로 정상 갱신됩니다.
-    - **일일 마감 갱신 지표 (코스피 200, 한국 10년/30년물):** 장중 실시간 데이터가 아닌 일별 확정 데이터를 수집하므로(네이버 금융 종가, 한국은행 ECOS 통계), 당일 장 마감 후 또는 오후 늦게 갱신됩니다.
+    - **아시아 증시 & 환율 (코스피, 코스닥, 니케이 225, CSI 300, 원/달러):** 아시아 장 개장 시간 동안 실시간(또는 15분 지연)으로 정상 갱신됩니다.
+    - **일일 마감 갱신 지표 (한국 10년/30년물):** 장중 실시간 데이터가 아닌 일별 확정 데이터를 수집하므로(한국은행 ECOS 통계), 당일 오후 늦게 갱신됩니다.
     """)
 
 st.subheader("💡 주요 시장 지표 현황")
@@ -223,7 +223,8 @@ cols1[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text
 cols1[3].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
 
 cols2 = st.columns(4)
-cols2[0].metric(f"KOSPI 200 [{last_dates.get('코스피200', '-')}]\n{get_mdd_text(latest_data.get('코스피200 MDD', 0))}", f"{latest_data.get('코스피200', 0):,.2f}", changes.get('코스피200', '0.00'))
+# 🌟 코스피 200 자리에 CSI 300 카드 배치
+cols2[0].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 cols2[1].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
 cols2[2].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
 cols2[3].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
@@ -239,12 +240,11 @@ st.divider()
 chart_cols = st.columns(2)
 
 with chart_cols[0]:
-    # 🌟 1. 제목이 두 줄이 되지 않도록 압축
     st.subheader("📊 주요 지수 상대수익률 (YTD)")
-    relative_cols = ['코스피(시작=100)', '코스피200(시작=100)', '코스닥(시작=100)', '니케이(시작=100)', 'S&P500(시작=100)', '나스닥(시작=100)']
+    # 🌟 상대수익률 차트에 CSI 300 반영
+    relative_cols = ['코스피(시작=100)', 'CSI300(시작=100)', '코스닥(시작=100)', '니케이(시작=100)', 'S&P500(시작=100)', '나스닥(시작=100)']
     chart_data_rel = df_market[['일자'] + relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
     
-    # 🌟 2. 범례에 들어가는 텍스트 다이어트: '(시작=100)' 문구 제거
     chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
     
     line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
@@ -252,7 +252,7 @@ with chart_cols[0]:
         y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
         color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
-    ).properties(height=350).interactive() # 🌟 3. 양쪽 차트 높이를 350px로 강제 고정
+    ).properties(height=350).interactive()
     st.altair_chart(line_chart, use_container_width=True)
 
 with chart_cols[1]:
@@ -265,7 +265,7 @@ with chart_cols[1]:
         y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
         color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
         tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
-    ).properties(height=350).interactive() # 🌟 3. 양쪽 차트 높이를 350px로 강제 고정
+    ).properties(height=350).interactive()
     st.altair_chart(yield_chart, use_container_width=True)
 
 st.divider()
@@ -305,7 +305,8 @@ with mini_cols1[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이
 with mini_cols1[3]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
 
 mini_cols2 = st.columns(4)
-with mini_cols2[0]: st.markdown(f"**코스피 200** `({last_dates.get('코스피200', '-')})`"); draw_mini_chart(df_market, '코스피200')
+# 🌟 하단 미니 차트에서도 CSI 300으로 교체
+with mini_cols2[0]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
 with mini_cols2[1]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
 with mini_cols2[2]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
 with mini_cols2[3]: st.markdown(f"**원/달러 환율** `({last_dates.get('환율($/원)', '-')})`"); draw_mini_chart(df_market, '환율($/원)')
