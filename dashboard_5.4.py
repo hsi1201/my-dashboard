@@ -59,7 +59,7 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.9)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.10)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -93,10 +93,11 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 야후 파이낸스 서버
+    # 🌟 [엔진 1] 야후 파이낸스 서버 (코스피, 코스닥 이사 옴!)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
+        '^KS11': '코스피', '^KS200': '코스피200', '^KQ11': '코스닥', # 한국 증시 추가
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물'
     }
     for ticker, name in yf_tickers.items():
@@ -109,11 +110,8 @@ def get_market_data():
         except:
             continue
 
-    # [엔진 2] 네이버 금융 & KRX 서버
+    # 🌟 [엔진 2] 네이버 금융 & KRX 서버 (한국 증시 야후로 넘겨주고 환율만 남음)
     fdr_tickers = {
-        'KS11': '코스피', 
-        'KS200': '코스피200', 
-        'KQ11': '코스닥', 
         'USD/KRW': '환율($/원)'
     }
     for ticker, name in fdr_tickers.items():
@@ -158,7 +156,7 @@ def get_market_data():
     df.index.name = '일자'
     df.reset_index(inplace=True)
     
-    # 🌟 데이터 표에서 00:00:00 시간을 날리고 연-월-일만 남김
+    # 데이터 표에서 00:00:00 시간을 날리고 연-월-일만 남김
     df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
     
     if '한국10년물' not in df.columns: df['한국10년물'] = 3.123 
