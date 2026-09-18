@@ -4,3 +4,4 @@ altair
 yfinance
 finance-datareader
 requests
+streamlit-autorefresh
