@@ -53,22 +53,6 @@ h1 {
     font-size: 0.8rem !important; 
 }
 
-/* 크립토 전광판 스타일 */
-.crypto-ticker-box {
-    background-color: rgba(130, 130, 130, 0.04);
-    border: 1px solid rgba(130, 130, 130, 0.15);
-    border-radius: 8px;
-    padding: 8px 15px;
-    margin-bottom: 15px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    font-size: 0.9rem;
-}
-.crypto-item {
-    font-weight: 600;
-}
-
 /* 뉴스 링크 스타일 */
 .news-link {
     text-decoration: none;
@@ -82,49 +66,8 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.40)")
+st.title("📊 글로벌 마켓 대시보드 (v6.41)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
-
-# 🌟 [신규 엔진] 크립토(비트코인, 이더리움) 24시간 실시간 가격 및 변동률 수집
-@st.cache_data(ttl=60) # 암호화폐는 1분 단위 갱신
-def get_crypto_data():
-    crypto_info = {}
-    tickers = {"BTC-USD": "비트코인", "ETH-USD": "이더리움"}
-    for t, name in tickers.items():
-        try:
-            df = yf.Ticker(t).history(period='2d')
-            if len(df) >= 2:
-                curr = df['Close'].iloc[-1]
-                prev = df['Close'].iloc[-2]
-                diff = curr - prev
-                pct = (diff / prev) * 100
-                crypto_info[name] = {"price": curr, "diff": diff, "pct": pct}
-            elif len(df) == 1:
-                curr = df['Close'].iloc[-1]
-                crypto_info[name] = {"price": curr, "diff": 0, "pct": 0}
-        except:
-            crypto_info[name] = {"price": 0, "diff": 0, "pct": 0}
-    return crypto_info
-
-crypto_data = get_crypto_data()
-
-# 🌟 타이틀 바로 아래에 깔끔한 전광판 바(Bar) 출력
-btc = crypto_data.get("비트코인", {"price": 0, "diff": 0, "pct": 0})
-eth = crypto_data.get("이더리움", {"price": 0, "diff": 0, "pct": 0})
-
-btc_color = "color: #2e7d32;" if btc['pct'] >= 0 else "color: #c62828;"
-eth_color = "color: #2e7d32;" if eth['pct'] >= 0 else "color: #c62828;"
-
-st.markdown(f"""
-<div class="crypto-ticker-box">
-    <span class="crypto-item">₿ <b>비트코인 (BTC):</b> ${btc['price']:,.2f} &nbsp;<span style="{btc_color}">({btc['diff']:+,.2f} / {btc['pct']:+.2f}%)</span></span>
-    <span style="color: #666;">|</span>
-    <span class="crypto-item">Ξ <b>이더리움 (ETH):</b> ${eth['price']:,.2f} &nbsp;<span style="{eth_color}">({eth['diff']:+,.2f} / {eth['pct']:+.2f}%)</span></span>
-    <span style="color: #666;">|</span>
-    <span style="font-size: 0.8rem; color: #888;">🕒 24시간 실시간 유동성 지표</span>
-</div>
-""", unsafe_allow_html=True)
-
 st.divider()
 
 # 2. 데이터 자동 수집 및 계산 엔진
@@ -197,6 +140,7 @@ def get_market_data():
             
             temp_df = pd.DataFrame(csi_restored)
             temp_df.columns = ['CSI300']
+            temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
             temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
             df_list.append(temp_df)
     except:
