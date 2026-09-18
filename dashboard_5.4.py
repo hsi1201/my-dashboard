@@ -4,9 +4,13 @@ import altair as alt
 import yfinance as yf
 import FinanceDataReader as fdr
 import requests
+from streamlit_autorefresh import st_autorefresh # 🌟 자동 갱신 타이머 부품 추가
 
 # 1. 웹페이지 기본 설정
 st.set_page_config(page_title="나만의 투자 관제탑", layout="wide", initial_sidebar_state="collapsed")
+
+# 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면을 백그라운드에서 자동으로 새로고침
+st_autorefresh(interval=180000, limit=10000, key="data_refresh")
 
 # 🌟 [디자인 1] CSS 주입
 st.markdown("""
@@ -36,12 +40,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.5)")
+st.title("📊 글로벌 자산투자 시황 대시보드 (UI/UX 6.6)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
 # 2. 데이터 자동 수집 및 계산 엔진
-@st.cache_data(ttl=180) 
+@st.cache_data(ttl=180) # 사용자가 설정한 3분(180초) 캐시 유지
 def get_market_data():
     df_list = []
     
@@ -108,7 +112,6 @@ def get_market_data():
     last_dates = {}
     changes = {}
     
-    # 🌟 핵심 수정: 빈칸을 복사(ffill)하기 전에 '실제 존재하는' 마지막 두 날짜 데이터만 비교하여 등락률 계산
     for col in df.columns:
         valid_series = df[col].dropna()
         valid_date = valid_series.index[-1] if not valid_series.empty else None
@@ -158,7 +161,6 @@ def get_market_data():
     
     return df, last_dates, changes, sync_time
 
-# 반환받는 변수에 changes 추가 및 기존 get_daily_change 함수 삭제
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
@@ -179,7 +181,7 @@ def get_mdd_text(mdd_val):
 # UI 레이아웃
 # ---------------------------------------------------------
 
-st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준)")
+st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준) - 3분 단위 자동 새로고침 작동 중")
 
 st.subheader("💡 주요 시장 지표 현황")
 
@@ -194,7 +196,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🌟 metric의 세 번째 인자를 계산된 changes 딕셔너리에서 가져오도록 수정
 cols1 = st.columns(4)
 cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
 cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
