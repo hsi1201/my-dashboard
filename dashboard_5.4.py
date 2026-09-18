@@ -68,16 +68,17 @@ h1 {
 .etf-box {
     background-color: rgba(130, 130, 130, 0.08);
     border-left: 4px solid #1E88E5;
-    padding: 10px 15px;
+    padding: 12px 15px;
     margin-top: -10px;
     margin-bottom: 15px;
     border-radius: 4px;
     font-size: 0.9rem;
+    line-height: 1.5;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 글로벌 마켓 대시보드 (v6.46)")
+st.title("📊 글로벌 마켓 대시보드 (v6.47)")
 st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화")
 st.divider()
 
@@ -292,7 +293,6 @@ def get_market_regime(latest_data):
 
 st.info(f"🔄 **실시간 데이터 갱신 완료:** {sync_time} (한국 시간 기준) - 3분 단위 자동 새로고침 작동 중")
 
-# 🌟 주말 데이터 지연 현상 경고 메시지 상시 추가
 st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
 
 with st.expander("📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내 (클릭하여 열기)"):
@@ -309,20 +309,45 @@ st.subheader("💡 주요 시장 지표 현황")
 
 weather_col, cal_col = st.columns([2, 1])
 
+# 🌟 기상도별 맞춤형 ETF (미국 + 국내 상장 듀얼 표기)
 with weather_col:
     regime_title, regime_desc, regime_type = get_market_regime(latest_data)
     if regime_type == "error":
         st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        st.markdown("<div class='etf-box'>🛡️ <b>[맞춤 전략] 약세장(Safe Haven) 추천 ETF:</b> 🇺🇸 <b>BIL</b> (초단기채/현금성), <b>TLT</b> (장기채), <b>UUP</b> (달러 인덱스)</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='etf-box'>
+            🛡️ <b>[맞춤 전략] 약세장(Safe Haven) 피난처:</b> 현금성 자산 및 달러 확보<br>
+            🇺🇸 <b>미국 상장 직투:</b> BIL (초단기채), TLT (장기채), UUP (달러 인덱스)<br>
+            🇰🇷 <b>국내 연금/ISA용:</b> KODEX CD금리액티브, KODEX 미국달러선물, ACE 미국30년국채액티브(H)
+        </div>
+        """, unsafe_allow_html=True)
     elif regime_type == "warning":
         st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        st.markdown("<div class='etf-box'>☂️ <b>[맞춤 전략] 조정장(Defensive) 추천 ETF:</b> 🇺🇸 <b>TLT</b> (미국 장기채), <b>GLD</b> (금), <b>XLV</b> (헬스케어 방어주)</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='etf-box'>
+            ☂️ <b>[맞춤 전략] 조정장(Defensive) 방어 전략:</b> 안전자산 및 방어주 중심<br>
+            🇺🇸 <b>미국 상장 직투:</b> TLT (미국 장기채), GLD (금), XLV (헬스케어 방어주)<br>
+            🇰🇷 <b>국내 연금/ISA용:</b> TIGER 미국채10년선물, ACE 골드선물(H), TIGER 미국헬스케어
+        </div>
+        """, unsafe_allow_html=True)
     elif regime_type == "success":
         st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        st.markdown("<div class='etf-box'>🚀 <b>[맞춤 전략] 강세장(Risk On) 추천 ETF:</b> 🇺🇸 <b>QQQ</b> (나스닥 기술주), <b>SOXX</b> (반도체), <b>SPY</b> (S&P 500)</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='etf-box'>
+            🚀 <b>[맞춤 전략] 강세장(Risk On) 공격 타격:</b> 기술주 및 주도주 중심<br>
+            🇺🇸 <b>미국 상장 직투:</b> QQQ (나스닥 기술주), SOXX (반도체), SPY (S&P 500)<br>
+            🇰🇷 <b>국내 연금/ISA용:</b> TIGER 미국나스닥100, KODEX 미국반도체MV, TIGER 미국S&P500
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
-        st.markdown("<div class='etf-box'>⚖️ <b>[맞춤 전략] 눈치보기(Neutral) 추천 ETF:</b> 🇺🇸 <b>SPY</b> (S&P 500 코어), <b>VIG</b> (배당성장), <b>USMV</b> (저변동성)</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='etf-box'>
+            ⚖️ <b>[맞춤 전략] 눈치보기(Neutral) 코어 전략:</b> 지수 방어 및 배당 수익<br>
+            🇺🇸 <b>미국 상장 직투:</b> SPY (S&P 500 코어), VIG (배당성장), USMV (저변동성)<br>
+            🇰🇷 <b>국내 연금/ISA용:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스, KODEX 배당성장
+        </div>
+        """, unsafe_allow_html=True)
 
 with cal_col:
     st.info("📅 **이번 주 주요 매크로 일정**\n"
@@ -407,7 +432,6 @@ with chart_cols[1]:
 st.divider()
 
 st.subheader("📉 개별 지수 및 환율/원자재 추이")
-# 🌟 수정한 문법: 괄호 ) 정상 복구
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -430,7 +454,7 @@ def draw_mini_chart(df, column_name):
                 alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), 
                 alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')
             ]
-        ) 
+        )
         
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
