@@ -41,7 +41,7 @@ st.markdown("Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무�
 st.divider()
 
 # 2. 데이터 자동 수집 및 계산 엔진
-@st.cache_data(ttl=3600) 
+@st.cache_data(ttl=180) 
 def get_market_data():
     df_list = []
     
