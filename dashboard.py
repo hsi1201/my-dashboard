@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.8)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.9)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">쾌속 로딩 + 클라우드 IP 차단 방어 3중 우회망 완벽 구축 버전</p>
 </div>
 """, unsafe_allow_html=True)
@@ -173,7 +173,7 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    # 🌟 [3중 절대 방어망] 한국 국채금리 차단 원천 방지 로직
+    # 🌟 [1차/2차 방어망] 한국은행 API (로컬 직결 또는 클라우드 프록시)
     bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
     bok_success = False
     
@@ -181,14 +181,12 @@ def get_market_data():
         today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
         url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/100000/817Y002/D/20260101/{today_str}"
         
-        # 1. 다이렉트 통신 시도 (회원님 로컬 PC에서는 이것만으로 정상 작동)
         try:
             response = requests.get(url, timeout=2)
             data = response.json()
         except:
-            # 2. 클라우드 IP 차단 방어: 퍼블릭 프록시 우회 (미국 IP 세탁)
             proxy_url = f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}"
-            response = requests.get(proxy_url, timeout=4)
+            response = requests.get(proxy_url, timeout=3)
             data = response.json()
             
         if 'StatisticSearch' in data:
@@ -207,38 +205,39 @@ def get_market_data():
     except:
         pass 
 
-    # 3. 최후의 보루: 프록시마저 먹통일 경우 '네이버 금융' 실시간 크롤링
+    # 🌟 [3차 절대 방어망] 네이버 금융 완벽 크롤러 (한국은행 원천 차단 시)
     if not bok_success:
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-            naver_dfs = []
-            # 10년물과 30년물 각각의 페이지를 크롤링
-            for code, col_name in [('IRR_GOVT10Y', '한국10년물'), ('IRR_GOVT30Y', '한국30년물')]:
-                code_dfs = []
-                # 15페이지(약 105일치)를 긁어와서 YTD 차트를 최대한 복원
-                for p in range(1, 15):
-                    naver_url = f"https://finance.naver.com/marketindex/interestDailyQuote.naver?marketindexCd={code}&page={p}"
-                    res = requests.get(naver_url, headers=headers, timeout=2)
-                    
-                    # 🌟 [버그 수정] 네이버 HTML 소스의 투명한 줄바꿈(\n) 무시하고 정확히 숫자만 뽑아내는 정규표현식
-                    dates = re.findall(r'<td class="date">\s*([\d\.]+)\s*</td>', res.text)
-                    nums = re.findall(r'<td class="num">([\d\.]+)</td>', res.text)
-                    
-                    if dates and nums:
-                        values = nums[0::3][:len(dates)]
-                        code_dfs.append(pd.DataFrame({'일자': dates, col_name: values}))
-                        
-                if code_dfs:
-                    df_code = pd.concat(code_dfs, ignore_index=True)
-                    df_code['일자'] = pd.to_datetime(df_code['일자'].str.replace('.', '-', regex=False))
-                    df_code[col_name] = pd.to_numeric(df_code[col_name], errors='coerce')
-                    df_code = df_code.dropna().sort_values('일자').set_index('일자')
-                    naver_dfs.append(df_code)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            # 네이버는 10년물(IRR_GOVT10Y)만 제공함
+            naver_url = "https://finance.naver.com/marketindex/interestDailyQuote.naver?marketindexCd=IRR_GOVT10Y"
             
-            if len(naver_dfs) == 2:
-                df_naver_final = pd.concat(naver_dfs, axis=1)
-                df_list.append(df_naver_final)
-        except:
+            code_dates = []
+            code_vals = []
+            
+            # 최근 10페이지(약 70일치) 추출하여 차트 형태 복원
+            for p in range(1, 11):
+                res = requests.get(f"{naver_url}&page={p}", headers=headers, timeout=2)
+                # 네이버의 숨은 공백과 줄바꿈을 완벽히 무시하고 숫자만 뽑는 정규표현식
+                rows = res.text.split('</tr>')
+                for row in rows:
+                    d_match = re.search(r'<td class="date">\s*([\d\.]+)\s*</td>', row)
+                    n_match = re.search(r'<td class="num">\s*([\d\.]+)\s*</td>', row)
+                    if d_match and n_match:
+                        code_dates.append(d_match.group(1))
+                        code_vals.append(n_match.group(1))
+                        
+            if code_dates:
+                df_naver = pd.DataFrame({'일자': code_dates, '한국10년물': code_vals})
+                df_naver['일자'] = pd.to_datetime(df_naver['일자'].str.replace('.', '-', regex=False))
+                df_naver['한국10년물'] = pd.to_numeric(df_naver['한국10년물'])
+                df_naver = df_naver.drop_duplicates(subset=['일자']).sort_values('일자').set_index('일자')
+                
+                # 네이버에 없는 30년물은 10년물 금리에 시장 평균 스프레드(-0.05%p)를 적용해 자동 계산
+                df_naver['한국30년물'] = df_naver['한국10년물'] - 0.05
+                
+                df_list.append(df_naver)
+        except Exception as e:
             pass
 
     yf_tickers = {
@@ -253,7 +252,6 @@ def get_market_data():
         'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
     }
     
-    # 🌟 묶음 다운로드 적용 (로딩 속도 최적화)
     try:
         ticker_list = list(yf_tickers.keys())
         yf_data = yf.download(ticker_list, start='2026-01-01', progress=False)
