@@ -83,7 +83,7 @@ st.markdown("""
 # 🌟 압축형 커스텀 헤더 적용 (여백 최소화)
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.57)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.58)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -119,14 +119,13 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 안정적인 야후 파이낸스 서버 원복 + 🌟 미국 11대 섹터 ETF 추가
+    # [엔진 1] 안정적인 야후 파이낸스 서버 원복 + 섹터 ETF
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
         '^KS11': '코스피', '^KQ11': '코스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
         '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
-        # --- 섹터 ETF 11종 ---
         'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
         'XLE': '에너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
         'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
@@ -227,7 +226,10 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥']
+    # 🌟 상대수익률(시작=100) 계산군에 11대 섹터 ETF 추가
+    sector_names = ['기술(XLK)', '금융(XLF)', '헬스케어(XLV)', '에너지(XLE)', '자유소비재(XLY)', '산업재(XLI)', '필수소비재(XLP)', '유틸리티(XLU)', '소재(XLB)', '부동산(XLRE)', '커뮤니케이션(XLC)']
+    relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥'] + sector_names
+    
     for col in relative_cols:
         if col in df.columns:
             first_val = df[col].iloc[0]
@@ -299,7 +301,6 @@ def get_market_regime(latest_data):
     else:
         return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
-# 🌟 미니 차트 Y축 포맷팅 최적화 (지수 표기법 방지 및 k 단위 사용)
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -524,11 +525,32 @@ with tab2:
 
 
 # ==============================================================================
-# 🌟 탭 3: 미국 섹터별 흐름 (Sector Rotation) - 신규
+# 🌟 탭 3: 미국 섹터별 흐름 (Sector Rotation)
 # ==============================================================================
 with tab3:
     st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
     st.markdown("월가 기관들의 자금 이동(Sector Rotation) 및 시장 주도주를 파악하기 위한 11개 주요 산업 섹터 ETF 추이입니다.")
+    
+    # 🌟 섹터별 통합 상대수익률 차트 추가
+    st.markdown("##### 📊 주요 11대 섹터 상대수익률 비교 (YTD)")
+    sector_base_cols = ['기술(XLK)', '금융(XLF)', '헬스케어(XLV)', '에너지(XLE)', '자유소비재(XLY)', '산업재(XLI)', '필수소비재(XLP)', '유틸리티(XLU)', '소재(XLB)', '부동산(XLRE)', '커뮤니케이션(XLC)']
+    valid_sec_rel_cols = [col + '(시작=100)' for col in sector_base_cols if col + '(시작=100)' in df_market.columns]
+
+    if valid_sec_rel_cols:
+        chart_data_sec_rel = df_market[['일자'] + valid_sec_rel_cols].melt(id_vars=['일자'], var_name='섹터', value_name='상대수익률')
+        chart_data_sec_rel['섹터'] = chart_data_sec_rel['섹터'].str.replace('(시작=100)', '', regex=False)
+
+        # 구별하기 쉬운 범주형 색상 팔레트(category20) 및 가로로 넓게 퍼진 범례(columns=6) 적용
+        sec_line_chart = alt.Chart(chart_data_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            color=alt.Color('섹터:N', scale=alt.Scale(scheme='category20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
+            tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
+        ).properties(height=380)
+        st.altair_chart(sec_line_chart, use_container_width=True)
+    else:
+        st.warning("현재 섹터 상대수익률 차트를 그릴 데이터가 부족합니다.")
+        
     st.divider()
     
     sec_cols1 = st.columns(4)
