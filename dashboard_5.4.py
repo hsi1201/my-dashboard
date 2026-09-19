@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.80)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.81)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -355,9 +355,10 @@ def draw_mini_chart(df, column_name):
         y_min, y_max = min_val - padding, max_val + padding
         y_axis_format = '.2f' if '년물' in column_name else '~s'
         
+        # 🌟 zero=False 옵션 추가로 불필요한 바닥 여백(자동차 차트 등) 완벽 해결
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=5)),
-            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
+            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
                     axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format=y_axis_format, tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
         )
@@ -389,9 +390,10 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
         if padding == 0: padding = 1
         y_min, y_max = min_val - padding, max_val + padding
         
+        # 🌟 zero=False 옵션 추가로 불필요한 바닥 여백 완벽 해결
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=4)),
-            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
+            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
                     axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='~s', tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
         )
@@ -551,12 +553,44 @@ with tab1:
         regime_title, regime_desc, regime_type = get_market_regime(latest_data)
         if regime_type == "error":
             st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🛡️ <b>[맞춤 전략] 약세장 피난처:</b> 현금성 자산 및 방어 테마<br>
+                🇺🇸 <b>미국 대표 지수:</b> BIL, TLT, UUP<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX CD금리액티브, KODEX 미국달러선물<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>ITA</b> (방위산업), <b>GDX</b> (금광기업) | 🇰🇷 <b>ARIRANG K방산</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "warning":
             st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ☂️ <b>[맞춤 전략] 조정장 방어 전략:</b> 안전자산 및 필수소비재 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> TLT, GLD, XLV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국채10년선물, ACE 골드선물(H)<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>XLU</b> (유틸리티), <b>XLP</b> (필수소비재) | 🇰🇷 <b>KODEX 미국S&P500유틸리티</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "success":
             st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🚀 <b>[맞춤 전략] 강세장 공격 타격:</b> 지수 레버리지 및 주도 테마 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> QQQ, SOXX, SPY<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국나스닥100, KODEX 미국반도체MV<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>BOTZ</b> (AI/로봇), <b>IBIT</b> (비트코인) | 🇰🇷 <b>KODEX 미국AI테크TOP10</b>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ⚖️ <b>[맞춤 전략] 눈치보기 코어 전략:</b> 지수 방어 및 고배당 수익<br>
+                🇺🇸 <b>미국 대표 지수:</b> SPY, SCHD, USMV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>PAVE</b> (미국 인프라), <b>JEPQ</b> (고배당) | 🇰🇷 <b>TIGER 미국배당+7%프리미엄</b>
+            </div>
+            """, unsafe_allow_html=True)
 
     with cal_col:
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
@@ -890,7 +924,6 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         
-        # 🌟 모든 계좌 테이블의 열 너비(Pixel)를 강제로 똑같이 맞추기 위한 전역 설정
         col_config = {
             "종목명": st.column_config.TextColumn("종목명", width=250),
             "보유수량": st.column_config.TextColumn("보유수량", width=100),
@@ -906,7 +939,6 @@ with tab6:
             summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
             
             st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
-            # 🌟 테이블 렌더링 시 너비 고정(column_config) 파라미터 투입!
             st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config)
             st.markdown("<br>", unsafe_allow_html=True)
         
