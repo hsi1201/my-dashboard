@@ -74,7 +74,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.94)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -896,7 +896,6 @@ with tab3:
         
     st.divider()
     
-    # 🌟 원가격 차트 유지 + 종목 이름 옆에 실시간 YTD 수익률 뱃지 동적으로 삽입
     sec_cols1 = st.columns(4)
     with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `Apple` {get_ytd_str(df_market, '기술(XLK)')}"); draw_mini_chart(df_market, '기술(XLK)')
     with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `Berkshire` {get_ytd_str(df_market, '금융(XLF)')}"); draw_mini_chart(df_market, '금융(XLF)')
