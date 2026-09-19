@@ -13,7 +13,7 @@ st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", in
 # 🌟 [자동 갱신] 30분(1,800,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=1800000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입
+# 🌟 [디자인 1] CSS 주입 (우측 상단 Streamlit 기본 툴바 복구 완료)
 st.markdown("""
 <style>
 .block-container {
@@ -68,15 +68,12 @@ st.markdown("""
     padding-top: 1rem;
     padding-bottom: 1rem;
 }
-[data-testid="stToolbar"] {
-    visibility: hidden;
-}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.89)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.90)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -152,7 +149,7 @@ def get_default_asset_data():
         {"분류": "월 여유금", "금액": "₩ 2,411,146", "비고": "생활비 사용 가능 범위"}
     ])
     df_fixed = pd.DataFrame({
-        "항목": ["학원비 (플루트/영어/미술 등)", "공과금 (관리비/가스/인터넷 등)", "세금 (자동차세/재산세)", "보험료 (성일/지혜/고은 종합/실비)"],
+        "항목": ["학원비 (플루트/영어/미술 등)", "공과금 (관리비/가스/인터넷 등)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
         "금액": ["₩ 852,845", "₩ 357,590", "₩ 131,739", "₩ 327,094"]
     })
     df_bar = pd.DataFrame({
@@ -204,6 +201,18 @@ def get_market_data():
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
         '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
         'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
+        'XLE': 'エ너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
+        'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
+        'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
+    }
+    
+    yf_tickers = {
+        '^GSPC': 'S&P500', '^IXIC': '나스닥', 
+        '^N225': '니케이', 
+        '^KS11': '코스피', '^KQ11': '코스닥', 
+        'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
+        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
+        'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
         'XLE': '에너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
         'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
         'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
@@ -245,21 +254,20 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 정확한 국내 12대 테마별 공식 ETF 티커 매핑
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
-        '091160': 'K-반도체',      # KODEX 반도체
-        '305720': 'K-2차전지',     # TIGER 2차전지테마
-        '091180': 'K-자동차',      # KODEX 자동차 (수정 완료)
-        '157490': 'K-인터넷',      # TIGER 소프트웨어
-        '227540': 'K-헬스케어',    # TIGER 200 헬스케어
-        '091220': 'K-은행',        # TIGER 은행
-        '139230': 'K-기계조선',    # TIGER 200 중공업
-        '139240': 'K-철강',        # TIGER 200 철강소재
-        '315270': 'K-미디어엔터',  # TIGER 200 커뮤니케이션서비스
-        '139220': 'K-건설',        # TIGER 200 건설
-        '139250': 'K-화학',        # TIGER 200 에너지화학
-        '449450': 'K-방산'         # PLUS K방산
+        '091160': 'K-반도체',      
+        '305720': 'K-2차전지',     
+        '091180': 'K-자동차',      
+        '157490': 'K-인터넷',      
+        '227540': 'K-헬스케어',    
+        '091220': 'K-은행',        
+        '139230': 'K-기계조선',    
+        '139240': 'K-철강',        
+        '315270': 'K-미디어엔터',  
+        '139220': 'K-건설',        
+        '139250': 'K-화학',        
+        '449450': 'K-방산'         
     }
     for ticker, name in fdr_tickers.items():
         try:
@@ -374,7 +382,6 @@ def get_portfolio_history():
     df.bfill(inplace=True)
     
     df_raw = df.copy()
-    
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -387,7 +394,6 @@ def get_portfolio_history():
     df_raw.index.name = '일자'
     df_raw.reset_index(inplace=True)
     df_raw['일자'] = df_raw['일자'].dt.strftime('%Y-%m-%d')
-    
     return df, df_raw
 
 @st.cache_data(ttl=600) 
@@ -398,17 +404,13 @@ def get_news_data():
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        for item in kr_root.findall('.//item')[:10]: 
-            news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except:
-        news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in kr_root.findall('.//item')[:10]: news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except: news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
-        for item in us_root.findall('.//item')[:10]:
-            news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except:
-        news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in us_root.findall('.//item')[:10]: news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except: news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
     return news_dict
 
 news_data = get_news_data()
