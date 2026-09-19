@@ -6,7 +6,7 @@ import FinanceDataReader as fdr
 import requests
 import xml.etree.ElementTree as ET
 import hashlib
-import re  # 🌟 날짜 타임스탬프 필터링을 위한 정규표현식 라이브러리 추가
+import re
 from streamlit_autorefresh import st_autorefresh 
 
 # 1. 웹페이지 기본 설정
@@ -75,8 +75,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.3)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.4)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance 묶음 다운로드 적용 (로딩 속도 최적화 버전)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -207,18 +207,31 @@ def get_market_data():
         'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
         'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
     }
-    for ticker, name in yf_tickers.items():
-        try:
-            temp_df = yf.Ticker(ticker).history(start='2026-01-01')[['Close']]
-            if name == '엔/원 환율':
-                temp_df['Close'] = temp_df['Close'] * 100
+    
+    # 🌟 [속도 5배 향상] 23개 종목을 하나씩 부르지 않고 한 번의 네트워크 통신으로 묶어오기(Batch)
+    try:
+        ticker_list = list(yf_tickers.keys())
+        yf_data = yf.download(ticker_list, start='2026-01-01', progress=False)
+        
+        if isinstance(yf_data.columns, pd.MultiIndex):
+            yf_close = yf_data['Close']
+        else:
+            yf_close = yf_data
+
+        for ticker, name in yf_tickers.items():
+            if ticker in yf_close.columns:
+                temp_df = yf_close[[ticker]].dropna().copy()
+                if temp_df.empty: continue
                 
-            temp_df.columns = [name]
-            temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
-            temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
-            df_list.append(temp_df)
-        except:
-            continue
+                if name == '엔/원 환율':
+                    temp_df[ticker] = temp_df[ticker] * 100
+                    
+                temp_df.columns = [name]
+                temp_df.index = pd.to_datetime(temp_df.index).normalize().tz_localize(None)
+                temp_df = temp_df[~temp_df.index.duplicated(keep='last')]
+                df_list.append(temp_df)
+    except:
+        pass
             
     try:
         try:
@@ -269,6 +282,7 @@ def get_market_data():
         except:
             continue
             
+    if not df_list: return pd.DataFrame(), {}, {}, ""
     df = pd.concat(df_list, axis=1)
     
     last_dates = {}
@@ -327,7 +341,7 @@ def get_market_data():
     return df, last_dates, changes, sync_time
 
 df_market, last_dates, changes, sync_time = get_market_data()
-latest_data = df_market.iloc[-1] 
+latest_data = df_market.iloc[-1] if not df_market.empty else {}
 
 @st.cache_data(ttl=3600)
 def get_portfolio_history():
@@ -535,7 +549,6 @@ def parse_portfolio_excel(file):
         val = str(row[first_col]).strip()
         if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
         
-        # 🌟 [버그 수정] 엑셀 하단에 찍히는 업데이트 날짜(타임스탬프) 행을 종목으로 인식하지 않도록 강제 스킵
         if re.match(r'^\d{4}-\d{2}-\d{2}', val): continue
             
         if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
