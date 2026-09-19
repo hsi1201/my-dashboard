@@ -2,7 +2,7 @@ streamlit
 pandas
 altair
 yfinance
-financedataReader
+finance-dataReader
 requests
 openpyxl
 streamlit-autorefresh
