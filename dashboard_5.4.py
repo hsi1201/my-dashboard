@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.71)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.72)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -385,18 +385,43 @@ def draw_holding_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
+# 🌟 신규: 원 그래프(도넛 차트) 생성 전용 함수
+def draw_pie_chart(df, color_scheme):
+    df = df[df['현재금액'] > 0].copy()
+    if df.empty:
+        st.markdown("*데이터 없음*")
+        return
+        
+    df['비중'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1).astype(str) + '%'
+    
+    chart = alt.Chart(df).mark_arc(innerRadius=40, stroke="#fff", strokeWidth=1).encode(
+        theta=alt.Theta(field="현재금액", type="quantitative"),
+        color=alt.Color(field="분류", type="nominal", legend=alt.Legend(title=None, orient="bottom", columns=3), scale=alt.Scale(scheme=color_scheme)),
+        tooltip=['분류', alt.Tooltip('현재금액:Q', format=',.0f'), '비중']
+    ).properties(height=280)
+    
+    st.altair_chart(chart, use_container_width=True)
+
+
+# 🌟 엔진 업그레이드: 엑셀에서 자산군 데이터를 직접 파싱하도록 로직 추가
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
 
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
-    df_region = df_stats.iloc[10:14, [0, 1]].copy()
-    df_region.columns = ["분류", "현재금액"]
-    df_region['현재금액'] = pd.to_numeric(df_region['현재금액'], errors='coerce').fillna(0)
     
-    df_base = df_stats.iloc[10:14, [7, 8]].copy()
-    df_base.columns = ["분류", "현재금액"]
-    df_base['현재금액'] = pd.to_numeric(df_base['현재금액'], errors='coerce').fillna(0)
+    valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
+    valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
+    
+    # 지역그룹, 베이스국가, 자산군 파이차트용 데이터프레임 동적 생성
+    df_region = valid_inv.groupby('지역그룹')['현재가격'].sum().reset_index()
+    df_region.columns = ['분류', '현재금액']
+    
+    df_base = valid_inv.groupby('베이스국가')['현재가격'].sum().reset_index()
+    df_base.columns = ['분류', '현재금액']
+    
+    df_asset = valid_inv.groupby('자산군')['현재가격'].sum().reset_index()
+    df_asset.columns = ['분류', '현재금액']
     
     first_col = df_inv.columns[0]
     current_account = "알 수 없음"
@@ -477,7 +502,7 @@ def parse_portfolio_excel(file):
         "현금비중": f"{total_cash_weight:.1f}%",
         "현금액": f"₩ {total_cash:,.0f}"
     }
-    return metrics, df_region, df_base, df_holdings, account_summaries
+    return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
 
 # ---------------------------------------------------------
 # UI 공통 헤더
@@ -698,6 +723,10 @@ with tab5:
         for news in news_data["US"]:
             st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
+
+# ==============================================================================
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 3가지 원 그래프(Pie Chart) 적용
+# ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
@@ -708,12 +737,14 @@ with tab6:
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
+        # 🌟 기본 파이차트 초기 샘플 데이터 세팅
         metrics = {
             "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
             "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
         }
         df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
         df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
+        df_asset = pd.DataFrame({"분류": ["주식", "채권", "혼합", "가상자산", "현금"], "현재금액": [54367821, 7430900, 8787000, 0, 27929877]})
         
         df_holdings = pd.DataFrame({
             "계좌 구분": ["IRP - 장기"]*11 + ["ISA - 중기"]*2 + ["국내주식 - 단기"]*5 + ["해외주식 - 단기"]*3 + ["비상금"],
@@ -743,7 +774,7 @@ with tab6:
 
         if uploaded_file is not None:
             try:
-                metrics, df_region, df_base, df_holdings, account_summaries = parse_portfolio_excel(uploaded_file)
+                metrics, df_region, df_base, df_asset, df_holdings, account_summaries = parse_portfolio_excel(uploaded_file)
                 st.toast("업로드된 엑셀 파일 데이터로 동기화 완료!", icon="✅")
             except Exception as e:
                 st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
@@ -761,28 +792,21 @@ with tab6:
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        st.markdown("##### 🌍 국가 및 지역별 자산 노출 통계")
-        chart_col1, chart_col2 = st.columns(2)
+        # 🌟 3열 그리드로 신규 원 그래프(도넛 차트) 디자인 적용
+        st.markdown("##### 🌍 포트폴리오 노출 통계 (자산군 / 지역 / 베이스국가)")
+        chart_col1, chart_col2, chart_col3 = st.columns(3)
         
         with chart_col1:
-            st.markdown("**📌 지역그룹별 현재금액**")
-            region_chart = alt.Chart(df_region).mark_bar(size=40).encode(
-                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
-                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='blues')),
-                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
-            ).properties(height=300)
-            st.altair_chart(region_chart, use_container_width=True)
-
+            st.markdown("**📊 자산군별 비중**")
+            draw_pie_chart(df_asset, 'set2')
+            
         with chart_col2:
-            st.markdown("**📌 베이스국가별 현재금액**")
-            base_chart = alt.Chart(df_base).mark_bar(size=40).encode(
-                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
-                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='teals')),
-                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
-            ).properties(height=300)
-            st.altair_chart(base_chart, use_container_width=True)
+            st.markdown("**📌 지역그룹별 비중**")
+            draw_pie_chart(df_region, 'blues')
+
+        with chart_col3:
+            st.markdown("**📌 베이스국가별 비중**")
+            draw_pie_chart(df_base, 'teals')
 
         st.divider()
 
