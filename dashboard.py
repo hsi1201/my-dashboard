@@ -75,8 +75,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.5)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance 묶음 다운로드 + 차트 그리드 레이아웃 완벽 통일 버전</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.6)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">초고속 통신 최적화 + 2초 타임아웃 방어막 적용 버전</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -174,11 +174,12 @@ def get_market_data():
     
     bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
     
+    # 🌟 [핵심 개선] 한국은행 API 호출 시 timeout=2 설정 (지연 완전 차단)
     if bok_api_key != "여기에_발급받은_API_키를_입력하세요":
         try:
             today_str = pd.Timestamp.today().strftime('%Y%m%d')
             url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/100000/817Y002/D/20260101/{today_str}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=2) # 2초 안에 무응답이면 바로 패스!
             data = response.json()
             
             if 'StatisticSearch' in data:
@@ -208,7 +209,7 @@ def get_market_data():
         'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
     }
     
-    # 🌟 묶음 다운로드 적용 (로딩 속도 향상)
+    # 🌟 묶음 다운로드 적용 (로딩 속도 최적화)
     try:
         ticker_list = list(yf_tickers.keys())
         yf_data = yf.download(ticker_list, start='2026-01-01', progress=False)
@@ -406,12 +407,12 @@ def get_news_data():
     kr_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko"
     us_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"
     try:
-        kr_resp = requests.get(kr_url, timeout=5)
+        kr_resp = requests.get(kr_url, timeout=3)
         kr_root = ET.fromstring(kr_resp.content)
         for item in kr_root.findall('.//item')[:10]: news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
     except: news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
     try:
-        us_resp = requests.get(us_url, timeout=5)
+        us_resp = requests.get(us_url, timeout=3)
         us_root = ET.fromstring(us_resp.content)
         for item in us_root.findall('.//item')[:10]: news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
     except: news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
@@ -419,7 +420,6 @@ def get_news_data():
 
 news_data = get_news_data()
 
-# 🌟 1) YTD 문자열을 HTML 코드 태그로 반환하도록 변경
 def get_ytd_str(df, col):
     if col in df.columns:
         s = df[col].dropna()
@@ -431,7 +431,6 @@ def get_ytd_str(df, col):
                 return f"<code>(YTD {ret:+.1f}%)</code>"
     return ""
 
-# 🌟 2) 차트 제목이 길어도 절대 줄바꿈되지 않도록 자르는(Truncate) 전용 함수 추가
 def render_title(name, tag="", ytd_html=""):
     tag_str = f"<code>{tag}</code> " if tag else ""
     st.markdown(f"<div style='white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;' title='{name}'><b>{name}</b> {tag_str}{ytd_html}</div>", unsafe_allow_html=True)
@@ -875,7 +874,6 @@ with tab2:
     st.divider()
     st.subheader("📉 개별 지수 및 환율/원자재 추이")
     mini_cols1 = st.columns(4)
-    # 🌟 모든 미니 차트 제목이 한 줄을 넘어갈 때 강제 ... 처리되어 차트 높이가 무조건 통일되도록 `render_title` 적용
     with mini_cols1[0]: render_title("S&P 500", f"({last_dates.get('S&P500', '-')})"); draw_mini_chart(df_market, 'S&P500')
     with mini_cols1[1]: render_title("나스닥", f"({last_dates.get('나스닥', '-')})"); draw_mini_chart(df_market, '나스닥')
     with mini_cols1[2]: render_title("필라델피아 반도체", f"({last_dates.get('필라델피아 반도체', '-')})"); draw_mini_chart(df_market, '필라델피아 반도체')
