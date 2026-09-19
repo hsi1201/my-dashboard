@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.83)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.84)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -343,7 +343,6 @@ def get_market_regime(latest_data):
     elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
-# 🌟 모든 미니차트에 선명한 Grid(교차선) 및 Hover 툴팁 강화 적용
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna().copy()
@@ -358,7 +357,6 @@ def draw_mini_chart(df, column_name):
         
         chart_data['y_min_val'] = y_min
         
-        # 🌟 gridOpacity 0.5 및 gridColor #666666 적용하여 눈에 잘 띄도록 수정
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=5)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
@@ -370,7 +368,6 @@ def draw_mini_chart(df, column_name):
         
         nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
         selectors = alt.Chart(chart_data).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest)
-        # 🌟 Hover 선(수직선)을 흰색으로 변경하여 교차선 위에서 잘 보이도록 강조
         rules = alt.Chart(chart_data).mark_rule(color='white', opacity=0.6).encode(x='일자:T').transform_filter(nearest)
         
         chart = alt.layer(area, line, selectors, rules).properties(height=180)
@@ -396,7 +393,6 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
         
         chart_data['y_min_val'] = y_min
         
-        # 🌟 gridOpacity 0.5 및 gridColor #666666 적용하여 눈에 잘 띄도록 수정
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=4)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
@@ -408,7 +404,6 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
         
         nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
         selectors = alt.Chart(chart_data).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest)
-        # 🌟 Hover 선(수직선)을 흰색으로 변경
         rules = alt.Chart(chart_data).mark_rule(color='white', opacity=0.6).encode(x='일자:T').transform_filter(nearest)
         
         layers = [area, line, selectors, rules]
@@ -642,7 +637,6 @@ with tab2:
             chart_data_rel = df_market[['일자'] + valid_relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
             chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
             
-            # 🌟 두꺼운 회색 격자선 적용
             line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
                 x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
                 y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
@@ -763,23 +757,24 @@ with tab4:
         
     st.divider()
     
+    # 🌟 국내 테마 제목에 벤치마크 ETF 명시 적용
     kr_sec_cols1 = st.columns(4)
-    with kr_sec_cols1[0]: st.markdown(f"**반도체**"); draw_mini_chart(df_market, 'K-반도체')
-    with kr_sec_cols1[1]: st.markdown(f"**2차전지**"); draw_mini_chart(df_market, 'K-2차전지')
-    with kr_sec_cols1[2]: st.markdown(f"**자동차**"); draw_mini_chart(df_market, 'K-자동차')
-    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW**"); draw_mini_chart(df_market, 'K-인터넷')
+    with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)**"); draw_mini_chart(df_market, 'K-반도체')
+    with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)**"); draw_mini_chart(df_market, 'K-2차전지')
+    with kr_sec_cols1[2]: st.markdown(f"**자동차 (TIGER 자동차)**"); draw_mini_chart(df_market, 'K-자동차')
+    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)**"); draw_mini_chart(df_market, 'K-인터넷')
 
     kr_sec_cols2 = st.columns(4)
-    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어**"); draw_mini_chart(df_market, 'K-헬스케어')
-    with kr_sec_cols2[1]: st.markdown(f"**은행/금융**"); draw_mini_chart(df_market, 'K-은행')
-    with kr_sec_cols2[2]: st.markdown(f"**기계/조선**"); draw_mini_chart(df_market, 'K-기계조선')
-    with kr_sec_cols2[3]: st.markdown(f"**방위산업**"); draw_mini_chart(df_market, 'K-방산')
+    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어 (TIGER 200 헬스케어)**"); draw_mini_chart(df_market, 'K-헬스케어')
+    with kr_sec_cols2[1]: st.markdown(f"**은행/금융 (TIGER 은행)**"); draw_mini_chart(df_market, 'K-은행')
+    with kr_sec_cols2[2]: st.markdown(f"**기계/조선 (TIGER 200 중공업)**"); draw_mini_chart(df_market, 'K-기계조선')
+    with kr_sec_cols2[3]: st.markdown(f"**방위산업 (PLUS K방산)**"); draw_mini_chart(df_market, 'K-방산')
 
     kr_sec_cols3 = st.columns(4)
-    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터**"); draw_mini_chart(df_market, 'K-미디어엔터')
-    with kr_sec_cols3[1]: st.markdown(f"**철강/소재**"); draw_mini_chart(df_market, 'K-철강')
-    with kr_sec_cols3[2]: st.markdown(f"**화학**"); draw_mini_chart(df_market, 'K-화학')
-    with kr_sec_cols3[3]: st.markdown(f"**건설**"); draw_mini_chart(df_market, 'K-건설')
+    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터 (TIGER 200 커뮤니케이션서비스)**"); draw_mini_chart(df_market, 'K-미디어엔터')
+    with kr_sec_cols3[1]: st.markdown(f"**철강/소재 (TIGER 200 철강소재)**"); draw_mini_chart(df_market, 'K-철강')
+    with kr_sec_cols3[2]: st.markdown(f"**화학 (TIGER 200 에너지화학)**"); draw_mini_chart(df_market, 'K-화학')
+    with kr_sec_cols3[3]: st.markdown(f"**건설 (TIGER 200 건설)**"); draw_mini_chart(df_market, 'K-건설')
 
 with tab5:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
@@ -932,14 +927,15 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         
+        # 🌟 수량/금액/비중 컬럼 우측 정렬 완벽 적용
         col_config = {
             "종목명": st.column_config.TextColumn("종목명", width=250),
-            "보유수량": st.column_config.TextColumn("보유수량", width=100),
-            "매수단가": st.column_config.TextColumn("매수단가", width=150),
-            "현재가": st.column_config.TextColumn("현재가", width=150),
-            "수익률(%)": st.column_config.TextColumn("수익률(%)", width=100),
-            "현재가치": st.column_config.TextColumn("현재가치", width=150),
-            "계좌내 비중(%)": st.column_config.TextColumn("계좌내 비중(%)", width=120)
+            "보유수량": st.column_config.TextColumn("보유수량", width=100, alignment="right"),
+            "매수단가": st.column_config.TextColumn("매수단가", width=150, alignment="right"),
+            "현재가": st.column_config.TextColumn("현재가", width=150, alignment="right"),
+            "수익률(%)": st.column_config.TextColumn("수익률(%)", width=100, alignment="right"),
+            "현재가치": st.column_config.TextColumn("현재가치", width=150, alignment="right"),
+            "계좌내 비중(%)": st.column_config.TextColumn("계좌내 비중(%)", width=120, alignment="right")
         }
 
         for acc in df_holdings["계좌 구분"].unique():
