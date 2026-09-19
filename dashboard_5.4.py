@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.64)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.65)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -294,13 +294,13 @@ def get_market_regime(latest_data):
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
     
     if vix >= 30 or sp500_mdd <= -20:
-        return "⛈️ 심각 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 유의하세요.", "error"
+        return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 각별히 유의하세요.", "error"
     elif vix >= 20 or sp500_mdd <= -10:
-        return "🌧️ 조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다.", "warning"
+        return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
     elif vix < 15 and sp500_mdd >= -3:
-        return "☀️ 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
+        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else:
-        return "⛅ 눈치보기 장세 (Neutral)", "뚜렷한 방향성 없이 횡보하고 있습니다.", "info"
+        return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
@@ -357,7 +357,7 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
 # ==============================================================================
-# 탭 1 ~ 탭 5
+# 탭 1 ~ 탭 5 생략 없이 모두 포함
 # ==============================================================================
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
@@ -367,17 +367,52 @@ with tab1:
         regime_title, regime_desc, regime_type = get_market_regime(latest_data)
         if regime_type == "error":
             st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🛡️ <b>[맞춤 전략] 약세장 피난처:</b> 현금성 자산 및 방어 테마<br>
+                🇺🇸 <b>미국 대표 지수:</b> BIL, TLT, UUP<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX CD금리액티브, KODEX 미국달러선물<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>ITA</b> (방위산업), <b>GDX</b> (금광기업) | 🇰🇷 <b>ARIRANG K방산</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "warning":
             st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ☂️ <b>[맞춤 전략] 조정장 방어 전략:</b> 안전자산 및 필수소비재 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> TLT, GLD, XLV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국채10년선물, ACE 골드선물(H)<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>XLU</b> (유틸리티), <b>XLP</b> (필수소비재) | 🇰🇷 <b>KODEX 미국S&P500유틸리티</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "success":
             st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🚀 <b>[맞춤 전략] 강세장 공격 타격:</b> 지수 레버리지 및 주도 테마 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> QQQ, SOXX, SPY<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국나스닥100, KODEX 미국반도체MV<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>BOTZ</b> (AI/로봇), <b>IBIT</b> (비트코인) | 🇰🇷 <b>KODEX 미국AI테크TOP10</b>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ⚖️ <b>[맞춤 전략] 눈치보기 코어 전략:</b> 지수 방어 및 고배당 수익<br>
+                🇺🇸 <b>미국 대표 지수:</b> SPY, SCHD, USMV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>PAVE</b> (미국 인프라), <b>JEPQ</b> (고배당) | 🇰🇷 <b>TIGER 미국배당+7%프리미엄</b>
+            </div>
+            """, unsafe_allow_html=True)
 
     with cal_col:
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
-                "**[이번 주 리뷰]**\n- 09/18 (금): 일본 BOJ 기준금리 결정\n\n"
-                "**[다음 주 프리뷰]**\n- 09/25 (금): 🚨 **미국 8월 PCE 물가지수**")
+                "**[이번 주 리뷰]**\n"
+                "- **09/18 (금):** 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
+                "**[다음 주 프리뷰]**\n"
+                "- **09/24 (목):** 파월 연준 의장 연설 / 미 신규 실업수당 청구\n"
+                "- **09/25 (금):** 🚨 **미국 8월 개인소비지출(PCE) 물가지수**")
 
     st.subheader("📊 16개 핵심 지표 메트릭")
     cols1 = st.columns(4)
@@ -391,6 +426,18 @@ with tab1:
     cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
     cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
     cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
+
+    cols3 = st.columns(4)
+    cols3[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
+    cols3[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
+    cols3[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
+    cols3[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
+
+    cols4 = st.columns(4)
+    cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
+    cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
+    cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
+    cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
 
 with tab2:
     chart_cols = st.columns(2)
@@ -425,8 +472,51 @@ with tab2:
             ).properties(height=350)
             st.altair_chart(yield_chart, use_container_width=True)
 
+    st.divider()
+    st.subheader("📉 개별 지수 및 환율/원자재 추이")
+    mini_cols1 = st.columns(4)
+    with mini_cols1[0]: st.markdown(f"**S&P 500** `({last_dates.get('S&P500', '-')})`"); draw_mini_chart(df_market, 'S&P500')
+    with mini_cols1[1]: st.markdown(f"**나스닥** `({last_dates.get('나스닥', '-')})`"); draw_mini_chart(df_market, '나스닥')
+    with mini_cols1[2]: st.markdown(f"**필라델피아 반도체** `({last_dates.get('필라델피아 반도체', '-')})`"); draw_mini_chart(df_market, '필라델피아 반도체')
+    with mini_cols1[3]: st.markdown(f"**VIX 지수** `({last_dates.get('VIX', '-')})`"); draw_mini_chart(df_market, 'VIX')
+
+    mini_cols2 = st.columns(4)
+    with mini_cols2[0]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
+    with mini_cols2[1]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
+    with mini_cols2[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
+    with mini_cols2[3]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
+
+    mini_cols3 = st.columns(4)
+    with mini_cols3[0]: st.markdown(f"**원/달러 환율** `({last_dates.get('환율($/원)', '-')})`"); draw_mini_chart(df_market, '환율($/원)')
+    with mini_cols3[1]: st.markdown(f"**엔/원 환율 (100엔)** `({last_dates.get('엔/원 환율', '-')})`"); draw_mini_chart(df_market, '엔/원 환율')
+    with mini_cols3[2]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
+    with mini_cols3[3]: st.markdown(f"**금 (Gold)** `({last_dates.get('금', '-')})`"); draw_mini_chart(df_market, '금')
+
+    mini_cols4 = st.columns(4)
+    with mini_cols4[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국10년물', '-')})`"); draw_mini_chart(df_market, '미국10년물')
+    with mini_cols4[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
+    with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
+    with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
+
 with tab3:
-    st.subheader("🏭 미국 11대 대표 섹터 자금 흐름")
+    st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
+    st.markdown("##### 📊 주요 11대 섹터 상대수익률 비교 (YTD)")
+    sector_base_cols = ['기술(XLK)', '금융(XLF)', '헬스케어(XLV)', '에너지(XLE)', '자유소비재(XLY)', '산업재(XLI)', '필수소비재(XLP)', '유틸리티(XLU)', '소재(XLB)', '부동산(XLRE)', '커뮤니케이션(XLC)']
+    valid_sec_rel_cols = [col + '(시작=100)' for col in sector_base_cols if col + '(시작=100)' in df_market.columns]
+
+    if valid_sec_rel_cols:
+        chart_data_sec_rel = df_market[['일자'] + valid_sec_rel_cols].melt(id_vars=['일자'], var_name='섹터', value_name='상대수익률')
+        chart_data_sec_rel['섹터'] = chart_data_sec_rel['섹터'].str.replace('(시작=100)', '', regex=False)
+
+        sec_line_chart = alt.Chart(chart_data_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            color=alt.Color('섹터:N', scale=alt.Scale(scheme='category20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
+            tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
+        ).properties(height=380)
+        st.altair_chart(sec_line_chart, use_container_width=True)
+        
+    st.divider()
     sec_cols1 = st.columns(4)
     with sec_cols1[0]: st.markdown(f"**기술 (XLK)**"); draw_mini_chart(df_market, '기술(XLK)')
     with sec_cols1[1]: st.markdown(f"**금융 (XLF)**"); draw_mini_chart(df_market, '금융(XLF)')
@@ -434,7 +524,24 @@ with tab3:
     with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)**"); draw_mini_chart(df_market, '자유소비재(XLY)')
 
 with tab4:
-    st.subheader("🇰🇷 국내 12대 대표 테마 자금 흐름")
+    st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
+    st.markdown("##### 📊 주요 12대 국내 테마 상대수익률 비교 (YTD)")
+    kr_sector_base_cols = ['K-반도체', 'K-2차전지', 'K-자동차', 'K-인터넷', 'K-헬스케어', 'K-은행', 'K-기계조선', 'K-철강', 'K-미디어엔터', 'K-건설', 'K-화학', 'K-방산']
+    valid_kr_sec_rel_cols = [col + '(시작=100)' for col in kr_sector_base_cols if col + '(시작=100)' in df_market.columns]
+
+    if valid_kr_sec_rel_cols:
+        chart_data_kr_sec_rel = df_market[['일자'] + valid_kr_sec_rel_cols].melt(id_vars=['일자'], var_name='섹터', value_name='상대수익률')
+        chart_data_kr_sec_rel['섹터'] = chart_data_kr_sec_rel['섹터'].str.replace('(시작=100)', '', regex=False)
+
+        kr_sec_line_chart = alt.Chart(chart_data_kr_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            color=alt.Color('섹터:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
+            tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
+        ).properties(height=380)
+        st.altair_chart(kr_sec_line_chart, use_container_width=True)
+        
+    st.divider()
     kr_sec_cols1 = st.columns(4)
     with kr_sec_cols1[0]: st.markdown(f"**반도체**"); draw_mini_chart(df_market, 'K-반도체')
     with kr_sec_cols1[1]: st.markdown(f"**2차전지**"); draw_mini_chart(df_market, 'K-2차전지')
@@ -442,23 +549,29 @@ with tab4:
     with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW**"); draw_mini_chart(df_market, 'K-인터넷')
 
 with tab5:
-    st.markdown("#### 📰 실시간 주요 경제 헤드라인")
+    st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
+
     with news_col1:
-        for news in news_data["KR"]: st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+        st.markdown("##### 🇰🇷 국내 경제/비즈니스 (Top 10)")
+        for news in news_data["KR"]:
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+
     with news_col2:
-        for news in news_data["US"]: st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+        st.markdown("##### 🌎 글로벌 경제/비즈니스 (Top 10)")
+        for news in news_data["US"]:
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 보유수량 추가 및 계좌별 테이블 분리
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 총 매수금액 및 손익금액 추가 반영
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
     
-    if pwd == "1016":
+    if pwd == "0000":
         st.success("인증 완료! 엑셀 기반 계좌 통계 데이터를 성공적으로 불러왔습니다.")
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
@@ -503,7 +616,6 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         
-        # 🌟 보유수량 열을 추가한 전체 데이터프레임 구성
         df_holdings = pd.DataFrame({
             "계좌 구분": [
                 "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", 
@@ -522,7 +634,6 @@ with tab6:
                 "로봇공학 및 인공지능 글로벌엑스(BOTZ)", "나스닥 스마트 그리드 인프라(GRID)", "해외주식예수금",
                 "카카오뱅크(세이프박스)"
             ],
-            # 🌟 수량 추출 및 매핑
             "보유수량": [
                 "73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1",
                 "520", "1",
@@ -572,27 +683,22 @@ with tab6:
             ]
         })
         
-        # 🌟 각 계좌별 총액 및 수익률 데이터 딕셔너리 구성 (엑셀 하단 합계 데이터 기준)
+        # 🌟 계좌 종류별 상세 통계 딕셔너리 확장 (총매수, 총평가, 손익, 수익률 모두 포함)
         account_summaries = {
-            "IRP - 장기": {"total": "₩ 61,937,610", "ret": "+2.4%", "color": "red"},
-            "ISA - 중기": {"total": "₩ 9,722,573", "ret": "-3.0%", "color": "blue"},
-            "국내주식 - 단기": {"total": "₩ 9,317,028", "ret": "-6.8%", "color": "blue"},
-            "해외주식 - 단기": {"total": "₩ 3,528,260", "ret": "-2.6%", "color": "blue"},
-            "비상금": {"total": "₩ 8,010,127", "ret": "+0.1%", "color": "red"}
+            "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red"},
+            "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue"},
+            "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue"},
+            "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue"},
+            "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red"}
         }
 
-        # 🌟 계좌 종류별로 순회하며 독립된 테이블 생성
+        # 테이블 렌더링 루프
         for acc in df_holdings["계좌 구분"].unique():
-            # 해당 계좌의 데이터만 필터링하고 계좌 구분 열은 중복이므로 제거
             acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분"])
+            summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black"})
             
-            # 계좌 요약 정보 불러오기
-            summary = account_summaries.get(acc, {"total": "", "ret": "", "color": "black"})
-            
-            # 테이블 상단에 계좌 이름, 총액, 수익률 표시
-            st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총액: {summary['total']} &nbsp; | &nbsp; 합산 수익률: :{summary['color']}[**{summary['ret']}**]")
-            
-            # 독립된 테이블 렌더링
+            # 🌟 헤더에 '총매수' 및 '손익' 데이터 추가 반영
+            st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**]")
             st.dataframe(acc_data, use_container_width=True, hide_index=True)
             st.markdown("<br>", unsafe_allow_html=True)
         
