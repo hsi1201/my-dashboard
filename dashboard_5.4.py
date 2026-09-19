@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.67)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.68)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -298,7 +298,7 @@ def get_market_regime(latest_data):
     elif vix >= 20 or sp500_mdd <= -10:
         return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
     elif vix < 15 and sp500_mdd >= -3:
-        return "☀️ 안정적 강세장 (Risk 우위)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
+        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else:
         return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
@@ -338,6 +338,116 @@ def draw_mini_chart(df, column_name):
         st.markdown(f"*{column_name} 데이터 없음*")
 
 # ---------------------------------------------------------
+# 🌟 신규: 엑셀 파싱 자동화 엔진 함수
+# ---------------------------------------------------------
+def parse_portfolio_excel(file):
+    df_stats = pd.read_excel(file, sheet_name='국가통계')
+    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
+
+    # 1. 요약 메트릭 추출
+    total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
+    
+    # 2. 지역 및 국가 차트 데이터 추출
+    df_region = df_stats.iloc[10:14, [0, 1]].copy()
+    df_region.columns = ["분류", "현재금액"]
+    df_region['현재금액'] = pd.to_numeric(df_region['현재금액'], errors='coerce').fillna(0)
+    
+    df_base = df_stats.iloc[10:14, [7, 8]].copy()
+    df_base.columns = ["분류", "현재금액"]
+    df_base['현재금액'] = pd.to_numeric(df_base['현재금액'], errors='coerce').fillna(0)
+    
+    # 3. 투자현황(계좌 및 종목) 파싱
+    first_col = df_inv.columns[0]
+    current_account = "알 수 없음"
+    rows_list = []
+    account_summaries = {}
+    
+    for idx, row in df_inv.iterrows():
+        val = str(row[first_col]).strip()
+        if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간':
+            continue
+            
+        # 계좌명 식별
+        if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
+            current_account = val
+            continue
+            
+        # 합계(요약) 데이터 식별
+        if val == '합계':
+            buy_val = pd.to_numeric(row.get('매수가격', 0), errors='coerce')
+            tot_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
+            profit_val = tot_val - buy_val if pd.notna(buy_val) and pd.notna(tot_val) else 0
+            ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
+            realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
+            
+            # 예수금 합산하여 현금 비중 계산
+            cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
+            cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
+            
+            account_summaries[current_account] = {
+                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0",
+                "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
+                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}",
+                "ret": f"{ret_val*100:+.2f}%",
+                "color": "red" if ret_val >= 0 else "blue",
+                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}",
+                "cash_amt": f"₩ {cash_amt:,.0f}",
+                "cash_weight": f"{cash_weight*100:.1f}%"
+            }
+            continue
+            
+        # 개별 종목 데이터 식별
+        qty = pd.to_numeric(row.get('수량', 0), errors='coerce')
+        buy_price = pd.to_numeric(row.get('매수가', 0), errors='coerce')
+        cur_price = pd.to_numeric(row.get('현재가', 0), errors='coerce')
+        ret = pd.to_numeric(row.get('수익률', 0), errors='coerce')
+        cur_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
+        weight = pd.to_numeric(row.get('현재비중', 0), errors='coerce')
+        
+        qty = 0 if pd.isna(qty) else qty
+        buy_price = 0 if pd.isna(buy_price) else buy_price
+        cur_price = 0 if pd.isna(cur_price) else cur_price
+        ret = 0 if pd.isna(ret) else ret
+        cur_val = 0 if pd.isna(cur_val) else cur_val
+        weight = 0 if pd.isna(weight) else weight
+        
+        rows_list.append({
+            '계좌 구분': current_account,
+            '종목명': val,
+            '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
+            '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
+            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
+            '수익률(%)': f"{ret*100:+.2f}%",
+            '현재가치': f"₩ {cur_val:,.0f}",
+            '현재가치_num': cur_val,
+            '계좌내 비중(%)': f"{weight*100:.1f}%"
+        })
+        
+    df_holdings = pd.DataFrame(rows_list)
+    if not df_holdings.empty:
+        df_holdings = df_holdings.drop(columns=['현재가치_num'])
+        
+    # 종합 요약 데이터 통합 계산
+    total_realized = sum([float(str(account_summaries[acc]['realized']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['realized']])
+    total_invested = sum([float(str(account_summaries[acc]['buy']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['buy']])
+    total_cash = sum([float(str(account_summaries[acc]['cash_amt']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['cash_amt']])
+    
+    total_profit = total_assets - total_invested
+    total_profit_pct = (total_profit / total_invested * 100) if total_invested > 0 else 0
+    total_cash_weight = (total_cash / total_assets * 100) if total_assets > 0 else 0
+            
+    metrics = {
+        "총자산": f"₩ {total_assets:,.0f}",
+        "총매수금액": f"₩ {total_invested:,.0f}",
+        "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
+        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}",
+        "현금비중": f"{total_cash_weight:.1f}%",
+        "현금액": f"₩ {total_cash:,.0f}"
+    }
+        
+    return metrics, df_region, df_base, df_holdings, account_summaries
+
+# ---------------------------------------------------------
 # UI 공통 헤더: 알림창 단일화
 # ---------------------------------------------------------
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
@@ -357,7 +467,7 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
 # ==============================================================================
-# 탭 1 ~ 탭 5
+# 탭 1 ~ 탭 5 생략 없이 모두 포함
 # ==============================================================================
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
@@ -564,7 +674,7 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 계좌별 실현손익 추가!
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 자동화 파싱 엔진 적용
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
@@ -576,46 +686,17 @@ with tab6:
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
-        st.divider()
-        
-        st.markdown("##### 💰 총 자산 현황 요약 (2026-09-19 기준)")
-        p_cols = st.columns(4)
-        p_cols[0].metric("총 자산 (Total Assets)", "₩ 98,515,598", "+₩ 251,608 (0.3%)")
-        p_cols[1].metric("총 매수금액 (Total Invested)", "₩ 98,263,990", "")
-        p_cols[2].metric("실현 손익 (Realized Profit)", "₩ 9,627,261", "")
-        p_cols[3].metric("계좌 내 현금 비중 (Cash Weight)", "28.4%", "₩ 27,929,877", delta_color="off")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown("##### 🌍 국가 및 지역별 자산 노출 통계")
-        chart_col1, chart_col2 = st.columns(2)
-        
+        # 기본 샘플 데이터 세팅 (파일 미업로드 시 동작)
+        metrics = {
+            "총자산": "₩ 98,515,598",
+            "총매수금액": "₩ 98,263,990",
+            "평가손익": "+₩ 251,608 (0.3%)",
+            "실현손익": "+₩ 9,627,261",
+            "현금비중": "28.4%",
+            "현금액": "₩ 27,929,877"
+        }
         df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
         df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
-        
-        with chart_col1:
-            st.markdown("**📌 지역그룹별 현재금액**")
-            region_chart = alt.Chart(df_region).mark_bar(size=40).encode(
-                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
-                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='blues')),
-                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
-            ).properties(height=300)
-            st.altair_chart(region_chart, use_container_width=True)
-
-        with chart_col2:
-            st.markdown("**📌 베이스국가별 현재금액**")
-            base_chart = alt.Chart(df_base).mark_bar(size=40).encode(
-                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
-                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='teals')),
-                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
-            ).properties(height=300)
-            st.altair_chart(base_chart, use_container_width=True)
-
-        st.divider()
-
-        st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         
         df_holdings = pd.DataFrame({
             "계좌 구분": [
@@ -683,8 +764,6 @@ with tab6:
                 "100.0%"
             ]
         })
-        
-        # 🌟 계좌별 실현손익(realized) 데이터 파라미터 추가!
         account_summaries = {
             "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
             "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%", "realized": "₩ 0"},
@@ -693,7 +772,53 @@ with tab6:
             "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
         }
 
-        # 🌟 테이블 헤더에 💰 실현손익 추가 적용
+        # 🌟 파일 업로드 시 자동 파싱 적용
+        if uploaded_file is not None:
+            try:
+                metrics, df_region, df_base, df_holdings, account_summaries = parse_portfolio_excel(uploaded_file)
+                st.toast("업로드된 엑셀 파일 데이터로 동기화 완료!", icon="✅")
+            except Exception as e:
+                st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. 양식이 맞는지 확인해주세요. (오류: {e})")
+        else:
+            st.info("파일을 업로드하면 기존 데이터 대신 업로드된 최신 엑셀 데이터를 화면에 렌더링합니다.")
+            
+        st.divider()
+        
+        st.markdown("##### 💰 총 자산 현황 요약")
+        p_cols = st.columns(4)
+        p_cols[0].metric("총 자산 (Total Assets)", metrics["총자산"], metrics["평가손익"])
+        p_cols[1].metric("총 매수금액 (Total Invested)", metrics["총매수금액"], "")
+        p_cols[2].metric("실현 손익 (Realized Profit)", metrics["실현손익"], "")
+        p_cols[3].metric("계좌 내 현금 비중 (Cash Weight)", metrics["현금비중"], metrics["현금액"], delta_color="off")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        st.markdown("##### 🌍 국가 및 지역별 자산 노출 통계")
+        chart_col1, chart_col2 = st.columns(2)
+        
+        with chart_col1:
+            st.markdown("**📌 지역그룹별 현재금액**")
+            region_chart = alt.Chart(df_region).mark_bar(size=40).encode(
+                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
+                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='blues')),
+                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
+            ).properties(height=300)
+            st.altair_chart(region_chart, use_container_width=True)
+
+        with chart_col2:
+            st.markdown("**📌 베이스국가별 현재금액**")
+            base_chart = alt.Chart(df_base).mark_bar(size=40).encode(
+                x=alt.X('분류:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('현재금액:Q', title=None, axis=alt.Axis(format='~s')),
+                color=alt.Color('분류:N', legend=None, scale=alt.Scale(scheme='teals')),
+                tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
+            ).properties(height=300)
+            st.altair_chart(base_chart, use_container_width=True)
+
+        st.divider()
+
+        st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         for acc in df_holdings["계좌 구분"].unique():
             acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분"])
             summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
