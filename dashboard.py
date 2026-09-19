@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.9)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.10)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">쾌속 로딩 + 클라우드 IP 차단 방어 3중 우회망 완벽 구축 버전</p>
 </div>
 """, unsafe_allow_html=True)
@@ -208,36 +208,41 @@ def get_market_data():
     # 🌟 [3차 절대 방어망] 네이버 금융 완벽 크롤러 (한국은행 원천 차단 시)
     if not bok_success:
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            # 네이버는 10년물(IRR_GOVT10Y)만 제공함
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             naver_url = "https://finance.naver.com/marketindex/interestDailyQuote.naver?marketindexCd=IRR_GOVT10Y"
             
             code_dates = []
             code_vals = []
             
-            # 최근 10페이지(약 70일치) 추출하여 차트 형태 복원
-            for p in range(1, 11):
-                res = requests.get(f"{naver_url}&page={p}", headers=headers, timeout=2)
-                # 네이버의 숨은 공백과 줄바꿈을 완벽히 무시하고 숫자만 뽑는 정규표현식
-                rows = res.text.split('</tr>')
+            # 네이버는 10년물 금리만 제공하므로 15페이지(약 100일 치)를 안전하게 추출
+            for p in range(1, 15):
+                res = requests.get(f"{naver_url}&page={p}", headers=headers, timeout=5) # 안정성을 위해 timeout 늘림
+                res.encoding = 'euc-kr' # 🌟 한글 및 텍스트 깨짐 원천 방지
+                
+                rows = res.text.split('<tr')
                 for row in rows:
-                    d_match = re.search(r'<td class="date">\s*([\d\.]+)\s*</td>', row)
+                    d_match = re.search(r'<td class="date">\s*([\d\.\s]+)\s*</td>', row)
                     n_match = re.search(r'<td class="num">\s*([\d\.]+)\s*</td>', row)
+                    
                     if d_match and n_match:
-                        code_dates.append(d_match.group(1))
-                        code_vals.append(n_match.group(1))
+                        code_dates.append(d_match.group(1).strip())
+                        code_vals.append(n_match.group(1).strip())
                         
             if code_dates:
                 df_naver = pd.DataFrame({'일자': code_dates, '한국10년물': code_vals})
-                df_naver['일자'] = pd.to_datetime(df_naver['일자'].str.replace('.', '-', regex=False))
-                df_naver['한국10년물'] = pd.to_numeric(df_naver['한국10년물'])
-                df_naver = df_naver.drop_duplicates(subset=['일자']).sort_values('일자').set_index('일자')
+                
+                # 🌟 [핵심 버그 수정] 마침표와 공백이 섞인 날짜에서 '숫자'만 추출하여 완벽하게 변환 (ex. '2026. 09. 18' -> '20260918')
+                df_naver['일자'] = df_naver['일자'].str.replace(r'[^0-9]', '', regex=True)
+                df_naver['일자'] = pd.to_datetime(df_naver['일자'], format='%Y%m%d', errors='coerce')
+                df_naver['한국10년물'] = pd.to_numeric(df_naver['한국10년물'], errors='coerce')
+                
+                df_naver = df_naver.dropna(subset=['일자', '한국10년물']).drop_duplicates(subset=['일자']).sort_values('일자').set_index('일자')
                 
                 # 네이버에 없는 30년물은 10년물 금리에 시장 평균 스프레드(-0.05%p)를 적용해 자동 계산
                 df_naver['한국30년물'] = df_naver['한국10년물'] - 0.05
                 
                 df_list.append(df_naver)
-        except Exception as e:
+        except:
             pass
 
     yf_tickers = {
