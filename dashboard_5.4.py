@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.60)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.61)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -163,13 +163,13 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 [엔진 2] 네이버 금융 & KRX 서버 (환율 및 한국 12대 테마/섹터 ETF)
+    # [엔진 2] 네이버 금융 & KRX 서버 (환율 및 한국 12대 테마/섹터 ETF)
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      # KODEX 반도체
         '305720': 'K-2차전지',     # KODEX 2차전지산업
         '093240': 'K-자동차',      # KODEX 자동차
-        '157490': 'K-인터넷',      # TIGER 소프트웨어 (KODEX 인터넷 대체)
+        '157490': 'K-인터넷',      # TIGER 소프트웨어
         '266420': 'K-헬스케어',    # KODEX 헬스케어
         '091220': 'K-은행',        # KODEX 은행
         '102960': 'K-기계조선',    # KODEX 기계조선
@@ -232,7 +232,7 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    # 상대수익률(시작=100) 계산군에 국내 12대 테마 ETF 추가
+    # 상대수익률(시작=100) 계산군 추가
     us_sector_names = ['기술(XLK)', '금융(XLF)', '헬스케어(XLV)', '에너지(XLE)', '자유소비재(XLY)', '산업재(XLI)', '필수소비재(XLP)', '유틸리티(XLU)', '소재(XLB)', '부동산(XLRE)', '커뮤니케이션(XLC)']
     kr_sector_names = ['K-반도체', 'K-2차전지', 'K-자동차', 'K-인터넷', 'K-헬스케어', 'K-은행', 'K-기계조선', 'K-철강', 'K-미디어엔터', 'K-건설', 'K-화학', 'K-방산']
     relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥'] + us_sector_names + kr_sector_names
@@ -360,9 +360,9 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
     """)
 
 # ---------------------------------------------------------
-# 🌟 5개 탭 (Tabs) 분할
+# 🌟 6개 탭 (Tabs) 분할 (보유종목 탭 추가)
 # ---------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
 # ==============================================================================
 # 탭 1: 종합 마켓 뷰 (Overview)
@@ -637,3 +637,31 @@ with tab5:
         st.markdown("##### 🌎 글로벌 경제/비즈니스 (Top 10)")
         for news in news_data["US"]:
             st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+
+# ==============================================================================
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 비밀번호 보호 기능 적용
+# ==============================================================================
+with tab6:
+    st.subheader("🔒 개인 포트폴리오 (Private)")
+    
+    # 비밀번호 입력 폼 생성
+    pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
+    
+    # 🌟 여기에 원하는 비밀번호를 설정하세요 (현재 '0000')
+    if pwd == "0000":
+        st.success("인증 완료! 계좌 정보를 안전하게 불러옵니다.")
+        st.divider()
+        
+        # --- 여기에 개인 포트폴리오 데이터/차트 코드를 작성하시면 됩니다 ---
+        st.markdown("""
+        **[샘플 포트폴리오 현황]**
+        *   **자산 총액:** ₩ 150,000,000
+        *   **당일 수익금:** + ₩ 1,250,000 (0.84%)
+        *   **주요 보유 종목:** TIGER 미국나스닥100, KODEX 2차전지산업 등
+        """)
+        st.info("이 영역은 비밀번호를 정확히 입력한 기기에서만 렌더링되며, 소스 코드를 직접 열어보지 않는 이상 외부 접속자는 절대 내용을 볼 수 없습니다.")
+        
+    elif pwd != "":
+        st.error("비밀번호가 일치하지 않습니다.")
+    else:
+        st.caption("권한이 없는 사용자는 이 페이지의 데이터를 열람할 수 없습니다.")
