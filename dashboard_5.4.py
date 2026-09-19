@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.88)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.89)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -245,20 +245,21 @@ def get_market_data():
     except:
         pass
 
+    # 🌟 정확한 국내 12대 테마별 공식 ETF 티커 매핑
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
-        '091160': 'K-반도체',      
-        '305720': 'K-2차전지',     
-        '093240': 'K-자동차',      
-        '157490': 'K-인터넷',      
-        '266420': 'K-헬스케어',    
-        '091220': 'K-은행',        
-        '102960': 'K-기계조선',    
-        '117680': 'K-철강',        
-        '266360': 'K-미디어엔터',  
-        '117700': 'K-건설',        
-        '226490': 'K-화학',        
-        '449450': 'K-방산'         
+        '091160': 'K-반도체',      # KODEX 반도체
+        '305720': 'K-2차전지',     # TIGER 2차전지테마
+        '091180': 'K-자동차',      # KODEX 자동차 (수정 완료)
+        '157490': 'K-인터넷',      # TIGER 소프트웨어
+        '227540': 'K-헬스케어',    # TIGER 200 헬스케어
+        '091220': 'K-은행',        # TIGER 은행
+        '139230': 'K-기계조선',    # TIGER 200 중공업
+        '139240': 'K-철강',        # TIGER 200 철강소재
+        '315270': 'K-미디어엔터',  # TIGER 200 커뮤니케이션서비스
+        '139220': 'K-건설',        # TIGER 200 건설
+        '139250': 'K-화학',        # TIGER 200 에너지화학
+        '449450': 'K-방산'         # PLUS K방산
     }
     for ticker, name in fdr_tickers.items():
         try:
@@ -373,6 +374,7 @@ def get_portfolio_history():
     df.bfill(inplace=True)
     
     df_raw = df.copy()
+    
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -385,6 +387,7 @@ def get_portfolio_history():
     df_raw.index.name = '일자'
     df_raw.reset_index(inplace=True)
     df_raw['일자'] = df_raw['일자'].dt.strftime('%Y-%m-%d')
+    
     return df, df_raw
 
 @st.cache_data(ttl=600) 
@@ -395,13 +398,17 @@ def get_news_data():
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        for item in kr_root.findall('.//item')[:10]: news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except: news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in kr_root.findall('.//item')[:10]: 
+            news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except:
+        news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
-        for item in us_root.findall('.//item')[:10]: news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except: news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in us_root.findall('.//item')[:10]:
+            news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except:
+        news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
     return news_dict
 
 news_data = get_news_data()
@@ -906,11 +913,10 @@ with tab4:
         
     st.divider()
     
-    # 🌟 국내 테마별 대표 종목 1위 명시 적용
     kr_sec_cols1 = st.columns(4)
     with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)** `SK하이닉스`"); draw_mini_chart(df_market, 'K-반도체')
     with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)** `LG에너지솔루션`"); draw_mini_chart(df_market, 'K-2차전지')
-    with kr_sec_cols1[2]: st.markdown(f"**자동차 (TIGER 자동차)** `현대차`"); draw_mini_chart(df_market, 'K-자동차')
+    with kr_sec_cols1[2]: st.markdown(f"**자동차 (KODEX 자동차)** `현대차`"); draw_mini_chart(df_market, 'K-자동차')
     with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)** `NAVER`"); draw_mini_chart(df_market, 'K-인터넷')
 
     kr_sec_cols2 = st.columns(4)
