@@ -68,7 +68,6 @@ st.markdown("""
     padding-top: 1rem;
     padding-bottom: 1rem;
 }
-/* 우측 상단 Streamlit 기본 툴바 숨기기 */
 [data-testid="stToolbar"] {
     visibility: hidden;
 }
@@ -77,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.69)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.70)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -240,17 +239,13 @@ def get_market_data():
     df.fillna(0, inplace=True)
     
     sync_time = pd.Timestamp.now(tz='Asia/Seoul').strftime('%m/%d %H:%M')
-    
     return df, last_dates, changes, sync_time
 
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
-
-# 🌟 [신규 엔진] 보유종목 티커 매핑 및 YTD 히스토리 수집 엔진
-@st.cache_data(ttl=3600) # 1시간 캐싱 (API 호출 최소화)
+@st.cache_data(ttl=3600)
 def get_portfolio_history():
-    # 엑셀의 종목명과 실제 티커(종목코드) 매핑 사전
     portfolio_tickers = {
         'KODEX 200': ('FDR', '069500'),
         'TIGER 미국나스닥100': ('FDR', '133690'),
@@ -291,7 +286,6 @@ def get_portfolio_history():
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
-    # YTD 상대수익률(시작점 100)로 정규화
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -311,18 +305,14 @@ def get_news_data():
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
         for item in kr_root.findall('.//item')[:10]: 
-            title = item.find('title').text
-            link = item.find('link').text
-            news_dict["KR"].append({"title": title, "link": link})
+            news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
     except:
         news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
         for item in us_root.findall('.//item')[:10]:
-            title = item.find('title').text
-            link = item.find('link').text
-            news_dict["US"].append({"title": title, "link": link})
+            news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
     except:
         news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
     return news_dict
@@ -370,14 +360,37 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
+# 🌟 개별 종목 YTD 전용 미니 차트 함수 (기준선 100 및 YTD 수익률 표시)
+def draw_holding_mini_chart(df, column_name):
+    if column_name in df.columns:
+        chart_data = df[['일자', column_name]].dropna()
+        if chart_data.empty:
+            st.markdown(f"*{column_name} 데이터 없음*")
+            return
+        min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
+        padding = (max_val - min_val) * 0.1
+        if padding == 0: padding = 1
+        y_min, y_max = min_val - padding, max_val + padding
+        
+        base = alt.Chart(chart_data).encode(
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=4)),
+            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
+                    axis=alt.Axis(grid=False, format='.1f', tickCount=4, minExtent=35)),
+            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='상대수익률', format='.2f')]
+        )
+        area = base.mark_area(opacity=0.15, interpolate='monotone')
+        line = base.mark_line(interpolate='monotone', size=2)
+        rule = alt.Chart(pd.DataFrame({'y': [100]})).mark_rule(color='gray', strokeDash=[2, 2]).encode(y='y:Q')
+        chart = (area + line + rule).properties(height=160)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        st.markdown(f"*{column_name} 데이터 없음*")
 
-# 엑셀 파싱 자동화 엔진 함수
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
 
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
-    
     df_region = df_stats.iloc[10:14, [0, 1]].copy()
     df_region.columns = ["분류", "현재금액"]
     df_region['현재금액'] = pd.to_numeric(df_region['현재금액'], errors='coerce').fillna(0)
@@ -394,11 +407,9 @@ def parse_portfolio_excel(file):
     for idx, row in df_inv.iterrows():
         val = str(row[first_col]).strip()
         if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
-            
         if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
             current_account = val
             continue
-            
         if val == '합계':
             buy_val = pd.to_numeric(row.get('매수가격', 0), errors='coerce')
             tot_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
@@ -467,11 +478,10 @@ def parse_portfolio_excel(file):
         "현금비중": f"{total_cash_weight:.1f}%",
         "현금액": f"₩ {total_cash:,.0f}"
     }
-        
     return metrics, df_region, df_base, df_holdings, account_summaries
 
 # ---------------------------------------------------------
-# UI 공통 헤더: 알림창 단일화
+# UI 공통 헤더
 # ---------------------------------------------------------
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
     st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
@@ -489,9 +499,6 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
-# ==============================================================================
-# 탭 1 ~ 탭 5 생략 없이 모두 포함
-# ==============================================================================
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
     weather_col, cal_col = st.columns([2, 1])
@@ -541,11 +548,8 @@ with tab1:
 
     with cal_col:
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
-                "**[이번 주 리뷰]**\n"
-                "- **09/18 (금):** 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
-                "**[다음 주 프리뷰]**\n"
-                "- **09/24 (목):** 파월 연준 의장 연설 / 미 신규 실업수당 청구\n"
-                "- **09/25 (금):** 🚨 **미국 8월 개인소비지출(PCE) 물가지수**")
+                "**[이번 주 리뷰]**\n- 09/18 (금): 일본 BOJ 기준금리 결정\n\n"
+                "**[다음 주 프리뷰]**\n- 09/25 (금): 🚨 **미국 8월 PCE 물가지수**")
 
     st.subheader("📊 16개 핵심 지표 메트릭")
     cols1 = st.columns(4)
@@ -697,7 +701,7 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 자동 YTD 차트 엔진 결합
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 개별 종목 YTD 미니 차트 추가
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
@@ -709,7 +713,6 @@ with tab6:
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
-        # 엑셀 파싱 초기 샘플 데이터
         metrics = {
             "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
             "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
@@ -748,7 +751,7 @@ with tab6:
                 metrics, df_region, df_base, df_holdings, account_summaries = parse_portfolio_excel(uploaded_file)
                 st.toast("업로드된 엑셀 파일 데이터로 동기화 완료!", icon="✅")
             except Exception as e:
-                st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. 양식이 맞는지 확인해주세요. (오류: {e})")
+                st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
         else:
             st.info("💡 파일을 업로드하면 기존 샘플 데이터 대신 최신 엑셀 데이터를 화면에 렌더링합니다.")
             
@@ -788,11 +791,9 @@ with tab6:
 
         st.divider()
 
-        # 🌟 내 보유종목 YTD 히스토리 차트 렌더링
-        st.markdown("##### 📈 내 보유종목 YTD 상대수익률 비교 (시작=100)")
+        # 🌟 보유종목 통합 YTD 차트
+        st.markdown("##### 📈 보유종목 통합 YTD 상대수익률 비교 (시작=100)")
         df_port_hist = get_portfolio_history()
-        
-        # 엑셀(또는 샘플)에 존재하는 종목 중 티커 매핑이 성공하여 데이터를 가져온 종목만 필터링
         active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
         
         if active_holdings:
@@ -804,11 +805,27 @@ with tab6:
                 y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
                 color=alt.Color('종목:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=4)),
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
-            ).properties(height=450)
+            ).properties(height=420)
             st.altair_chart(port_line_chart, use_container_width=True)
-            st.caption("※ 엑셀 종목명을 기반으로 시장 티커와 자동 매핑하여 추적합니다. 예수금 등은 제외됩니다.")
+            
+            # 🌟 [신규 추가] 개별 종목별 YTD 미니 차트 그리드
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("##### 🔍 개별 종목별 YTD 추이 (연초=100 기준)")
+            
+            # 4열 그리드로 동적 배치
+            for i in range(0, len(active_holdings), 4):
+                cols = st.columns(4)
+                chunk = active_holdings[i:i+4]
+                for j, holding_name in enumerate(chunk):
+                    with cols[j]:
+                        # 현재 YTD 수익률 계산 (최신값 - 100)
+                        latest_val = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
+                        ytd_ret = latest_val - 100
+                        ret_color = "red" if ytd_ret >= 0 else "blue"
+                        st.markdown(f"**{holding_name}** `({ytd_ret:+.1f}%)`")
+                        draw_holding_mini_chart(df_port_hist, holding_name)
         else:
-            st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다. (티커 매핑 필요)")
+            st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
 
         st.divider()
 
