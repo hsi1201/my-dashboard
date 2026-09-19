@@ -83,7 +83,7 @@ st.markdown("""
 # 🌟 압축형 커스텀 헤더 적용 (여백 최소화)
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.56)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.57)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -119,13 +119,18 @@ def get_market_data():
         except:
             pass 
 
-    # [엔진 1] 안정적인 야후 파이낸스 서버 원복
+    # [엔진 1] 안정적인 야후 파이낸스 서버 원복 + 🌟 미국 11대 섹터 ETF 추가
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
         '^KS11': '코스피', '^KQ11': '코스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
-        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율'
+        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
+        # --- 섹터 ETF 11종 ---
+        'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
+        'XLE': '에너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
+        'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
+        'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
     }
     for ticker, name in yf_tickers.items():
         try:
@@ -310,12 +315,11 @@ def draw_mini_chart(df, column_name):
         y_min = min_val - padding
         y_max = max_val + padding
         
-        # 금리(%) 데이터는 소수점 2자리(.2f), 큰 지수 데이터는 SI prefix(~s) 사용 (예: 26000 -> 26k)
+        # 금리(%) 데이터는 소수점 2자리(.2f), 큰 지수 데이터는 SI prefix(~s) 사용
         y_axis_format = '.2f' if '년물' in column_name else '~s'
         
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=5)),
-            # minExtent=35로 깔끔한 정렬을 유지하면서 SI 포맷 적용
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
                     axis=alt.Axis(grid=False, format=y_axis_format, tickCount=4, minExtent=35)),
             tooltip=[
@@ -327,7 +331,7 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        # 마우스 휠 스크롤 충돌(Hijacking)을 막기 위해 .interactive() 미사용
+        # 마우스 휠 스크롤 충돌(Hijacking) 방지
         chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
@@ -350,10 +354,9 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
     """)
 
 # ---------------------------------------------------------
-# UI 탭 (Tabs) 분할
+# 🌟 4개 탭 (Tabs) 분할
 # ---------------------------------------------------------
-
-tab1, tab2, tab3 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "📰 실시간 경제 뉴스"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "📰 실시간 경제 뉴스"])
 
 # ==============================================================================
 # 탭 1: 종합 마켓 뷰 (Overview)
@@ -521,9 +524,36 @@ with tab2:
 
 
 # ==============================================================================
-# 탭 3: 실시간 경제 뉴스 (News)
+# 🌟 탭 3: 미국 섹터별 흐름 (Sector Rotation) - 신규
 # ==============================================================================
 with tab3:
+    st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
+    st.markdown("월가 기관들의 자금 이동(Sector Rotation) 및 시장 주도주를 파악하기 위한 11개 주요 산업 섹터 ETF 추이입니다.")
+    st.divider()
+    
+    sec_cols1 = st.columns(4)
+    with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `({last_dates.get('기술(XLK)', '-')})`"); draw_mini_chart(df_market, '기술(XLK)')
+    with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `({last_dates.get('금융(XLF)', '-')})`"); draw_mini_chart(df_market, '금융(XLF)')
+    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)** `({last_dates.get('헬스케어(XLV)', '-')})`"); draw_mini_chart(df_market, '헬스케어(XLV)')
+    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)** `({last_dates.get('자유소비재(XLY)', '-')})`"); draw_mini_chart(df_market, '자유소비재(XLY)')
+
+    sec_cols2 = st.columns(4)
+    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)** `({last_dates.get('커뮤니케이션(XLC)', '-')})`"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
+    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)** `({last_dates.get('산업재(XLI)', '-')})`"); draw_mini_chart(df_market, '산업재(XLI)')
+    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)** `({last_dates.get('필수소비재(XLP)', '-')})`"); draw_mini_chart(df_market, '필수소비재(XLP)')
+    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)** `({last_dates.get('에너지(XLE)', '-')})`"); draw_mini_chart(df_market, '에너지(XLE)')
+
+    sec_cols3 = st.columns(4)
+    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)** `({last_dates.get('유틸리티(XLU)', '-')})`"); draw_mini_chart(df_market, '유틸리티(XLU)')
+    with sec_cols3[1]: st.markdown(f"**소재 (XLB)** `({last_dates.get('소재(XLB)', '-')})`"); draw_mini_chart(df_market, '소재(XLB)')
+    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)** `({last_dates.get('부동산(XLRE)', '-')})`"); draw_mini_chart(df_market, '부동산(XLRE)')
+    with sec_cols3[3]: st.empty() # 12번째 칸은 레이아웃 맞춤용 빈 공간
+
+
+# ==============================================================================
+# 탭 4: 실시간 경제 뉴스 (News)
+# ==============================================================================
+with tab4:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
 
