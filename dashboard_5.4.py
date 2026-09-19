@@ -74,7 +74,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.92)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.93)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -659,7 +659,6 @@ def parse_asset_flow_excel(file):
             "금액": [format_krw(pd.to_numeric(df.iloc[r, 5], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 8], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 11], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 14], errors='coerce'))]
         })
         
-        # 🌟 수입/지출/저축/잔고 바 차트 스마트 추출 (줄 번호 고정 해제)
         inc_sum, exp_sum, sav_sum, bal_sum = 0, 0, 0, 0
         for row in range(len(df)):
             for col in range(len(df.columns) - 1):
@@ -688,7 +687,7 @@ def parse_asset_flow_excel(file):
     except Exception as e:
         return get_default_asset_data()
 
-# 🌟 해시값 비교로 완벽한 파일 업데이트 감지
+# 🌟 해시값 비교로 완벽한 파일 업데이트 감지 및 즉시 화면 새로고침
 def process_global_upload(uploaded_file):
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
@@ -702,6 +701,9 @@ def process_global_upload(uploaded_file):
                 st.session_state.tab7_data = parse_asset_flow_excel(uploaded_file)
                 st.session_state.last_uploaded_hash = file_hash
                 st.toast("새로운 엑셀 데이터로 대시보드 완벽 동기화 완료!", icon="✅")
+                
+                # 🌟 화면에 그려지는 시점과 데이터 파싱 시점의 오차를 해결하기 위한 핵심 코드
+                st.rerun() 
             except Exception as e:
                 st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
 
@@ -709,7 +711,7 @@ def process_global_upload(uploaded_file):
 # UI 공통 헤더
 # ---------------------------------------------------------
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
-    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
+    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 창출될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
     st.markdown("""
     **📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내**
     본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
