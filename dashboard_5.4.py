@@ -10,8 +10,8 @@ from streamlit_autorefresh import st_autorefresh
 # 1. 웹페이지 기본 설정
 st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", initial_sidebar_state="collapsed")
 
-# 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면 새로고침
-st_autorefresh(interval=180000, limit=10000, key="data_refresh")
+# 🌟 [자동 갱신] 10분(600,000 밀리초)마다 화면 새로고침
+st_autorefresh(interval=600000, limit=10000, key="data_refresh")
 
 # 🌟 [디자인 1] CSS 주입
 st.markdown("""
@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.70)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.71)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -360,7 +360,6 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 개별 종목 YTD 전용 미니 차트 함수 (기준선 100 및 YTD 수익률 표시)
 def draw_holding_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -699,10 +698,6 @@ with tab5:
         for news in news_data["US"]:
             st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
-
-# ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 개별 종목 YTD 미니 차트 추가
-# ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
@@ -791,7 +786,6 @@ with tab6:
 
         st.divider()
 
-        # 🌟 보유종목 통합 YTD 차트
         st.markdown("##### 📈 보유종목 통합 YTD 상대수익률 비교 (시작=100)")
         df_port_hist = get_portfolio_history()
         active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
@@ -808,17 +802,14 @@ with tab6:
             ).properties(height=420)
             st.altair_chart(port_line_chart, use_container_width=True)
             
-            # 🌟 [신규 추가] 개별 종목별 YTD 미니 차트 그리드
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("##### 🔍 개별 종목별 YTD 추이 (연초=100 기준)")
             
-            # 4열 그리드로 동적 배치
             for i in range(0, len(active_holdings), 4):
                 cols = st.columns(4)
                 chunk = active_holdings[i:i+4]
                 for j, holding_name in enumerate(chunk):
                     with cols[j]:
-                        # 현재 YTD 수익률 계산 (최신값 - 100)
                         latest_val = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
                         ytd_ret = latest_val - 100
                         ret_color = "red" if ytd_ret >= 0 else "blue"
