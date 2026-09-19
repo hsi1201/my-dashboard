@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.87)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.88)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -504,6 +504,7 @@ def draw_pie_chart(df, color_scheme):
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
+
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
     valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
     valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
@@ -532,12 +533,19 @@ def parse_portfolio_excel(file):
             profit_val = tot_val - buy_val if pd.notna(buy_val) and pd.notna(tot_val) else 0
             ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
             realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
+            
             cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
             cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
+            
             account_summaries[current_account] = {
-                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0", "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
-                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}", "ret": f"{ret_val*100:+.2f}%", "color": "red" if ret_val >= 0 else "blue",
-                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}", "cash_amt": f"₩ {cash_amt:,.0f}", "cash_weight": f"{cash_weight*100:.1f}%"
+                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0",
+                "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
+                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}",
+                "ret": f"{ret_val*100:+.2f}%",
+                "color": "red" if ret_val >= 0 else "blue",
+                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}",
+                "cash_amt": f"₩ {cash_amt:,.0f}",
+                "cash_weight": f"{cash_weight*100:.1f}%"
             }
             continue
             
@@ -556,14 +564,22 @@ def parse_portfolio_excel(file):
         weight = 0 if pd.isna(weight) else weight
         
         rows_list.append({
-            '계좌 구분': current_account, '종목명': val, '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
-            '매수단가_num': buy_price, '현재가_num': cur_price, '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
-            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-", '수익률(%)': f"{ret*100:+.2f}%",
-            '현재가치': f"₩ {cur_val:,.0f}", '현재가치_num': cur_val, '계좌내 비중(%)': f"{weight*100:.1f}%"
+            '계좌 구분': current_account,
+            '종목명': val,
+            '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
+            '매수단가_num': buy_price,
+            '현재가_num': cur_price,
+            '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
+            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
+            '수익률(%)': f"{ret*100:+.2f}%",
+            '현재가치': f"₩ {cur_val:,.0f}",
+            '현재가치_num': cur_val,
+            '계좌내 비중(%)': f"{weight*100:.1f}%"
         })
         
     df_holdings = pd.DataFrame(rows_list)
-    if not df_holdings.empty: df_holdings = df_holdings.drop(columns=['현재가치_num'])
+    if not df_holdings.empty:
+        df_holdings = df_holdings.drop(columns=['현재가치_num'])
         
     total_realized = sum([float(str(account_summaries[acc]['realized']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['realized']])
     total_invested = sum([float(str(account_summaries[acc]['buy']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['buy']])
@@ -574,8 +590,12 @@ def parse_portfolio_excel(file):
     total_cash_weight = (total_cash / total_assets * 100) if total_assets > 0 else 0
             
     metrics = {
-        "총자산": f"₩ {total_assets:,.0f}", "총매수금액": f"₩ {total_invested:,.0f}", "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
-        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}", "현금비중": f"{total_cash_weight:.1f}%", "현금액": f"₩ {total_cash:,.0f}"
+        "총자산": f"₩ {total_assets:,.0f}",
+        "총매수금액": f"₩ {total_invested:,.0f}",
+        "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
+        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}",
+        "현금비중": f"{total_cash_weight:.1f}%",
+        "현금액": f"₩ {total_cash:,.0f}"
     }
     return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
 
@@ -784,7 +804,6 @@ with tab2:
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
             ).properties(height=350)
             
-            # Hover Line 제거
             st.altair_chart(line_chart, use_container_width=True)
 
     with chart_cols[1]:
@@ -849,7 +868,6 @@ with tab3:
         
     st.divider()
     
-    # 🌟 미국 섹터별 탑 티어 대표 종목(대장주) 라벨 추가
     sec_cols1 = st.columns(4)
     with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `Apple`"); draw_mini_chart(df_market, '기술(XLK)')
     with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `Berkshire`"); draw_mini_chart(df_market, '금융(XLF)')
@@ -888,23 +906,24 @@ with tab4:
         
     st.divider()
     
+    # 🌟 국내 테마별 대표 종목 1위 명시 적용
     kr_sec_cols1 = st.columns(4)
-    with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)**"); draw_mini_chart(df_market, 'K-반도체')
-    with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)**"); draw_mini_chart(df_market, 'K-2차전지')
-    with kr_sec_cols1[2]: st.markdown(f"**자동차 (TIGER 자동차)**"); draw_mini_chart(df_market, 'K-자동차')
-    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)**"); draw_mini_chart(df_market, 'K-인터넷')
+    with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)** `SK하이닉스`"); draw_mini_chart(df_market, 'K-반도체')
+    with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)** `LG에너지솔루션`"); draw_mini_chart(df_market, 'K-2차전지')
+    with kr_sec_cols1[2]: st.markdown(f"**자동차 (TIGER 자동차)** `현대차`"); draw_mini_chart(df_market, 'K-자동차')
+    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)** `NAVER`"); draw_mini_chart(df_market, 'K-인터넷')
 
     kr_sec_cols2 = st.columns(4)
-    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어 (TIGER 200 헬스케어)**"); draw_mini_chart(df_market, 'K-헬스케어')
-    with kr_sec_cols2[1]: st.markdown(f"**은행/금융 (TIGER 은행)**"); draw_mini_chart(df_market, 'K-은행')
-    with kr_sec_cols2[2]: st.markdown(f"**기계/조선 (TIGER 200 중공업)**"); draw_mini_chart(df_market, 'K-기계조선')
-    with kr_sec_cols2[3]: st.markdown(f"**방위산업 (PLUS K방산)**"); draw_mini_chart(df_market, 'K-방산')
+    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어 (TIGER 200 헬스케어)** `삼성바이오로직스`"); draw_mini_chart(df_market, 'K-헬스케어')
+    with kr_sec_cols2[1]: st.markdown(f"**은행/금융 (TIGER 은행)** `KB금융`"); draw_mini_chart(df_market, 'K-은행')
+    with kr_sec_cols2[2]: st.markdown(f"**기계/조선 (TIGER 200 중공업)** `HD현대중공업`"); draw_mini_chart(df_market, 'K-기계조선')
+    with kr_sec_cols2[3]: st.markdown(f"**방위산업 (PLUS K방산)** `한화에어로스페이스`"); draw_mini_chart(df_market, 'K-방산')
 
     kr_sec_cols3 = st.columns(4)
-    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터 (TIGER 200 커뮤니케이션서비스)**"); draw_mini_chart(df_market, 'K-미디어엔터')
-    with kr_sec_cols3[1]: st.markdown(f"**철강/소재 (TIGER 200 철강소재)**"); draw_mini_chart(df_market, 'K-철강')
-    with kr_sec_cols3[2]: st.markdown(f"**화학 (TIGER 200 에너지화학)**"); draw_mini_chart(df_market, 'K-화학')
-    with kr_sec_cols3[3]: st.markdown(f"**건설 (TIGER 200 건설)**"); draw_mini_chart(df_market, 'K-건설')
+    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터 (TIGER 200 커뮤니케이션서비스)** `하이브`"); draw_mini_chart(df_market, 'K-미디어엔터')
+    with kr_sec_cols3[1]: st.markdown(f"**철강/소재 (TIGER 200 철강소재)** `POSCO홀딩스`"); draw_mini_chart(df_market, 'K-철강')
+    with kr_sec_cols3[2]: st.markdown(f"**화학 (TIGER 200 에너지화학)** `LG화학`"); draw_mini_chart(df_market, 'K-화학')
+    with kr_sec_cols3[3]: st.markdown(f"**건설 (TIGER 200 건설)** `현대건설`"); draw_mini_chart(df_market, 'K-건설')
 
 with tab5:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
