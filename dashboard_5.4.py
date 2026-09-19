@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.81)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.82)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -343,9 +343,10 @@ def get_market_regime(latest_data):
     elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
+# 🌟 자동차 차트 바닥 압축 현상 해결을 위해 y2 베이스라인 강제 매핑(y_min_val) 적용
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
-        chart_data = df[['일자', column_name]].dropna()
+        chart_data = df[['일자', column_name]].dropna().copy()
         if chart_data.empty:
             st.markdown(f"*{column_name} 데이터 없음*")
             return
@@ -355,14 +356,17 @@ def draw_mini_chart(df, column_name):
         y_min, y_max = min_val - padding, max_val + padding
         y_axis_format = '.2f' if '년물' in column_name else '~s'
         
-        # 🌟 zero=False 옵션 추가로 불필요한 바닥 여백(자동차 차트 등) 완벽 해결
+        # 🌟 Area 바닥(0) 찌그러짐 방지용 베이스라인
+        chart_data['y_min_val'] = y_min
+        
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=5)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
                     axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format=y_axis_format, tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
         )
-        area = base.mark_area(opacity=0.15, interpolate='monotone')
+        # 🌟 y2=alt.Y2('y_min_val:Q') 로 Area 하단 경계를 0이 아닌 y_min으로 강제 지정
+        area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
         line = base.mark_line(interpolate='monotone', size=2)
         
         nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
@@ -374,9 +378,10 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
+# 🌟 개별 종목 실제 가격 차트 바닥 압축 현상 해결 완료
 def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f'):
     if column_name in df.columns:
-        chart_data = df[['일자', column_name]].dropna()
+        chart_data = df[['일자', column_name]].dropna().copy()
         if chart_data.empty:
             st.markdown(f"*{column_name} 데이터 없음*")
             return
@@ -390,14 +395,17 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
         if padding == 0: padding = 1
         y_min, y_max = min_val - padding, max_val + padding
         
-        # 🌟 zero=False 옵션 추가로 불필요한 바닥 여백 완벽 해결
+        # 🌟 Area 바닥(0) 찌그러짐 방지용 베이스라인
+        chart_data['y_min_val'] = y_min
+        
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=4)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
                     axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='~s', tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
         )
-        area = base.mark_area(opacity=0.15, interpolate='monotone')
+        # 🌟 y2=alt.Y2('y_min_val:Q') 적용
+        area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
         line = base.mark_line(interpolate='monotone', size=2)
         
         nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
