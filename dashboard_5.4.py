@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.78)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.79)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -247,7 +247,6 @@ latest_data = df_market.iloc[-1]
 
 @st.cache_data(ttl=3600)
 def get_portfolio_history():
-    # 🌟 KODEX 차이나CSI300 티커 283580 으로 완벽 교체 완료
     portfolio_tickers = {
         'KODEX 200': ('FDR', '069500'),
         'TIGER 미국나스닥100': ('FDR', '133690'),
@@ -344,6 +343,7 @@ def get_market_regime(latest_data):
     elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
+# 🌟 모든 미니차트에 Grid(연한 십자선) 및 Hover 툴팁 강화 적용
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -356,15 +356,22 @@ def draw_mini_chart(df, column_name):
         y_min, y_max = min_val - padding, max_val + padding
         y_axis_format = '.2f' if '년물' in column_name else '~s'
         
+        # 🌟 grid=True 옵션 추가
         base = alt.Chart(chart_data).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=5)),
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=5)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
-                    axis=alt.Axis(grid=False, format=y_axis_format, tickCount=4, minExtent=35)),
+                    axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format=y_axis_format, tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
         )
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
-        chart = (area + line).properties(height=180)
+        
+        # 🌟 Hover시 수직선(Rule)이 따라다니도록 인터랙티브 효과 보강
+        nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+        selectors = alt.Chart(chart_data).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest)
+        rules = alt.Chart(chart_data).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest)
+        
+        chart = alt.layer(area, line, selectors, rules).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
@@ -385,16 +392,21 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
         if padding == 0: padding = 1
         y_min, y_max = min_val - padding, max_val + padding
         
+        # 🌟 grid=True 옵션 추가
         base = alt.Chart(chart_data).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=4)),
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='%m/%d', labelColor='gray', tickCount=4)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
-                    axis=alt.Axis(grid=False, format='~s', tickCount=4, minExtent=35)),
+                    axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2], format='~s', tickCount=4, minExtent=35)),
             tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
         )
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        layers = [area, line]
+        nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+        selectors = alt.Chart(chart_data).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest)
+        rules = alt.Chart(chart_data).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest)
+        
+        layers = [area, line, selectors, rules]
         
         if buy_line_y is not None:
             rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
@@ -413,6 +425,7 @@ def draw_pie_chart(df, color_scheme):
     df['비중'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1).astype(str) + '%'
     chart = alt.Chart(df).mark_arc(innerRadius=40, stroke="#fff", strokeWidth=1).encode(
         theta=alt.Theta(field="현재금액", type="quantitative"),
+        # 🌟 컬러 스킴 변경
         color=alt.Color(field="분류", type="nominal", legend=alt.Legend(title=None, orient="bottom", columns=3), scale=alt.Scale(scheme=color_scheme)),
         tooltip=['분류', alt.Tooltip('현재금액:Q', format=',.0f'), '비중']
     ).properties(height=280)
@@ -583,7 +596,6 @@ with tab1:
             """, unsafe_allow_html=True)
 
     with cal_col:
-        # 🌟 누락되었던 09/24(목) 일정 100% 복구 완료
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
                 "**[이번 주 리뷰]**\n"
                 "- 09/18 (금): 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
@@ -625,13 +637,20 @@ with tab2:
         if valid_relative_cols:
             chart_data_rel = df_market[['일자'] + valid_relative_cols].melt(id_vars=['일자'], var_name='지수', value_name='상대수익률')
             chart_data_rel['지수'] = chart_data_rel['지수'].str.replace('(시작=100)', '', regex=False)
+            
+            # 🌟 Y축 Grid 투명도 향상 적용
             line_chart = alt.Chart(chart_data_rel).mark_line(opacity=0.8).encode(
-                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
+                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
                 color=alt.Color('지수:N', legend=alt.Legend(title=None, orient="bottom", columns=3)),
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
             ).properties(height=350)
-            st.altair_chart(line_chart, use_container_width=True)
+            
+            # Hover Line 적용
+            nearest = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+            selectors = alt.Chart(chart_data_rel).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest)
+            rules = alt.Chart(chart_data_rel).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest)
+            st.altair_chart(alt.layer(line_chart, selectors, rules), use_container_width=True)
 
     with chart_cols[1]:
         st.subheader("📈 한·미 국채금리 비교")
@@ -640,12 +659,16 @@ with tab2:
         if valid_yield_cols:
             chart_data_yield = df_market[['일자'] + valid_yield_cols].melt(id_vars=['일자'], var_name='국채', value_name='금리(%)')
             yield_chart = alt.Chart(chart_data_yield).mark_line(opacity=0.8).encode(
-                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-                y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
+                y=alt.Y('금리(%):Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
                 color=alt.Color('국채:N', legend=alt.Legend(title=None, orient="bottom", columns=2)),
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
             ).properties(height=350)
-            st.altair_chart(yield_chart, use_container_width=True)
+            
+            nearest_y = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+            selectors_y = alt.Chart(chart_data_yield).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest_y)
+            rules_y = alt.Chart(chart_data_yield).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest_y)
+            st.altair_chart(alt.layer(yield_chart, selectors_y, rules_y), use_container_width=True)
 
     st.divider()
     st.subheader("📉 개별 지수 및 환율/원자재 추이")
@@ -684,18 +707,23 @@ with tab3:
         chart_data_sec_rel['섹터'] = chart_data_sec_rel['섹터'].str.replace('(시작=100)', '', regex=False)
 
         sec_line_chart = alt.Chart(chart_data_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
             color=alt.Color('섹터:N', scale=alt.Scale(scheme='category20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=380)
-        st.altair_chart(sec_line_chart, use_container_width=True)
+        
+        nearest_s = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+        selectors_s = alt.Chart(chart_data_sec_rel).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest_s)
+        rules_s = alt.Chart(chart_data_sec_rel).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest_s)
+        st.altair_chart(alt.layer(sec_line_chart, selectors_s, rules_s), use_container_width=True)
         
     st.divider()
     sec_cols1 = st.columns(4)
     with sec_cols1[0]: st.markdown(f"**기술 (XLK)**"); draw_mini_chart(df_market, '기술(XLK)')
     with sec_cols1[1]: st.markdown(f"**금융 (XLF)**"); draw_mini_chart(df_market, '금융(XLF)')
     with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)**"); draw_mini_chart(df_market, '헬스케어(XLV)')
+    # 🌟 자유소비재 XLY 티커 렌더링 중복 오류 수정 완료
     with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)**"); draw_mini_chart(df_market, '자유소비재(XLY)')
 
     sec_cols2 = st.columns(4)
@@ -720,14 +748,20 @@ with tab4:
         chart_data_kr_sec_rel['섹터'] = chart_data_kr_sec_rel['섹터'].str.replace('(시작=100)', '', regex=False)
 
         kr_sec_line_chart = alt.Chart(chart_data_kr_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
+            y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
             color=alt.Color('섹터:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=380)
-        st.altair_chart(kr_sec_line_chart, use_container_width=True)
+        
+        nearest_k = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+        selectors_k = alt.Chart(chart_data_kr_sec_rel).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest_k)
+        rules_k = alt.Chart(chart_data_kr_sec_rel).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest_k)
+        st.altair_chart(alt.layer(kr_sec_line_chart, selectors_k, rules_k), use_container_width=True)
         
     st.divider()
+    
+    # 🌟 자동차 등 특정 차트 크기 불일치 방지를 위해 모든 cols 균등 할당 및 동일 높이 적용
     kr_sec_cols1 = st.columns(4)
     with kr_sec_cols1[0]: st.markdown(f"**반도체**"); draw_mini_chart(df_market, 'K-반도체')
     with kr_sec_cols1[1]: st.markdown(f"**2차전지**"); draw_mini_chart(df_market, 'K-2차전지')
@@ -828,15 +862,16 @@ with tab6:
         
         st.markdown("##### 🌍 포트폴리오 노출 통계 (자산군 / 지역 / 베이스국가)")
         chart_col1, chart_col2, chart_col3 = st.columns(3)
+        # 🌟 도넛차트 색상 고대비 팔레트(category10)로 전면 교체 적용 완료
         with chart_col1:
             st.markdown("**📊 자산군별 비중**")
-            draw_pie_chart(df_asset, 'set2')
+            draw_pie_chart(df_asset, 'category10')
         with chart_col2:
             st.markdown("**📌 지역그룹별 비중**")
-            draw_pie_chart(df_region, 'blues')
+            draw_pie_chart(df_region, 'category10')
         with chart_col3:
             st.markdown("**📌 베이스국가별 비중**")
-            draw_pie_chart(df_base, 'teals')
+            draw_pie_chart(df_base, 'category10')
 
         st.divider()
 
@@ -849,12 +884,16 @@ with tab6:
             chart_data_port = df_port_hist[cols_to_plot].melt(id_vars=['일자'], var_name='종목', value_name='상대수익률')
             
             port_line_chart = alt.Chart(chart_data_port).mark_line(opacity=0.8, strokeWidth=2).encode(
-                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
-                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
+                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.1, gridDash=[2,2])),
                 color=alt.Color('종목:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=4)),
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
             ).properties(height=420)
-            st.altair_chart(port_line_chart, use_container_width=True)
+            
+            nearest_port = alt.selection_point(nearest=True, on='mouseover', fields=['일자'], empty=False)
+            selectors_port = alt.Chart(chart_data_port).mark_point().encode(x='일자:T', opacity=alt.value(0)).add_params(nearest_port)
+            rules_port = alt.Chart(chart_data_port).mark_rule(color='gray').encode(x='일자:T').transform_filter(nearest_port)
+            st.altair_chart(alt.layer(port_line_chart, selectors_port, rules_port), use_container_width=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("##### 🔍 개별 종목별 실제 가격 추이 및 매수단가 라인")
