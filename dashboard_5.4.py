@@ -13,7 +13,7 @@ st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", in
 # 🌟 [자동 갱신] 3분(180,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=180000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입: 헤더 메뉴는 살려두고 여백만 압축
+# 🌟 [디자인 1] CSS 주입: 헤더 메뉴는 살려두고 여백만 압축 및 탭 디자인 정비
 st.markdown("""
 <style>
 /* 화면 전체의 상하단 빵빵한 기본 여백 대폭 축소 */
@@ -83,7 +83,7 @@ st.markdown("""
 # 🌟 압축형 커스텀 헤더 적용 (여백 최소화)
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.55)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.56)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -294,7 +294,7 @@ def get_market_regime(latest_data):
     else:
         return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
-# 🌟 미니 차트 Y축 강제 표시 로직 추가 적용
+# 🌟 미니 차트 Y축 포맷팅 최적화 (지수 표기법 방지 및 k 단위 사용)
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -310,14 +310,14 @@ def draw_mini_chart(df, column_name):
         y_min = min_val - padding
         y_max = max_val + padding
         
-        # 금리(%) 데이터는 소수점 두자리(.2f), 지수는 정수 콤마(,) 포맷 사용
-        y_axis_format = '.2f' if '년물' in column_name else ','
+        # 금리(%) 데이터는 소수점 2자리(.2f), 큰 지수 데이터는 SI prefix(~s) 사용 (예: 26000 -> 26k)
+        y_axis_format = '.2f' if '년물' in column_name else '~s'
         
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=5)),
-            # 🌟 minExtent=45 를 주어 숫자가 크더라도 Y축 공간을 강제 확보하여 숨김 방지
+            # minExtent=35로 깔끔한 정렬을 유지하면서 SI 포맷 적용
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
-                    axis=alt.Axis(grid=False, format=y_axis_format, tickCount=4, minExtent=45)),
+                    axis=alt.Axis(grid=False, format=y_axis_format, tickCount=4, minExtent=35)),
             tooltip=[
                 alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), 
                 alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')
