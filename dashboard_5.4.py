@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.75)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.76)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -159,7 +159,6 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 K-방산 티커 449450으로 완전 교체 적용 완료
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      
@@ -246,7 +245,7 @@ df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
 
-# 🌟 개별 종목 실제 가격 반영을 위한 이원화 엔진
+# 🌟 개별 종목 실제 가격 반영 및 완벽한 티커 세팅 완료
 @st.cache_data(ttl=3600)
 def get_portfolio_history():
     portfolio_tickers = {
@@ -256,14 +255,14 @@ def get_portfolio_history():
         'TIGER 일본니케이225': ('FDR', '241180'),
         'KODEX 차이나CSI300': ('FDR', '192090'),
         'TIGER 미국S&P500': ('FDR', '360750'),
-        'ACE 미국S&P500미국채혼합50액티브': ('FDR', '465580'),
-        'ACE 미국나스닥100미국채혼합50액티브': ('FDR', '465590'),
-        'KODEX 국고채30년액티브': ('FDR', '448540'),
+        'ACE 미국S&P500미국채혼합50액티브': ('FDR', '438080'),
+        'ACE 미국나스닥100미국채혼합50액티브': ('FDR', '438100'),
+        'KODEX 국고채30년액티브': ('FDR', '439870'),
         'ACE 미국30년국채액티브(H)': ('FDR', '453850'),
         'TIGER 미국배당다우존스': ('FDR', '458730'),
         '한온시스템': ('FDR', '018880'),
         'TIGER 바이오TOP10': ('FDR', '364960'),
-        'PLUS K방산': ('FDR', '449450'), # 🌟 449450 통합 티커 반영!
+        'PLUS K방산': ('FDR', '449450'), 
         'SOL AI반도체소부장': ('FDR', '455850'),
         '로봇공학 및 인공지능 글로벌엑스(BOTZ)': ('YF', 'BOTZ'),
         '나스닥 스마트 그리드 인프라(GRID)': ('YF', 'GRID')
@@ -289,10 +288,10 @@ def get_portfolio_history():
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
-    # 미니 차트를 위한 🌟실제 주가(RAW)🌟 보존
+    # 미니 차트를 위한 실제 주가(RAW) 보존
     df_raw = df.copy()
     
-    # 통합 비교 차트를 위한 🌟상대 수익률(100스케일)🌟 변환
+    # 통합 비교 차트를 위한 상대 수익률(100스케일) 변환
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -372,8 +371,8 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 실제 가격 전용 미니 차트 엔진 (매수 단가 오해 방지)
-def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None):
+# 🌟 매수 단가 붉은 점선 및 동적 포맷팅 기능이 추가된 원본 차트 렌더러
+def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f'):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
         if chart_data.empty:
@@ -393,14 +392,13 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None):
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=4)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
                     axis=alt.Axis(grid=False, format='~s', tickCount=4, minExtent=35)),
-            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=',.2f')]
+            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
         )
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
         layers = [area, line]
         
-        # 🌟 실제 6만 6천 원대에 매수단가 레드라인 고정!
         if buy_line_y is not None:
             rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
             layers.append(rule_buy)
@@ -409,7 +407,6 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None):
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
-
 
 def draw_pie_chart(df, color_scheme):
     df = df[df['현재금액'] > 0].copy()
@@ -541,6 +538,9 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
+# ==============================================================================
+# 탭 1: 종합 마켓 뷰 (사라졌던 ETF 추천 박스 복구 완료)
+# ==============================================================================
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
     weather_col, cal_col = st.columns([2, 1])
@@ -549,12 +549,44 @@ with tab1:
         regime_title, regime_desc, regime_type = get_market_regime(latest_data)
         if regime_type == "error":
             st.error(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🛡️ <b>[맞춤 전략] 약세장 피난처:</b> 현금성 자산 및 방어 테마<br>
+                🇺🇸 <b>미국 대표 지수:</b> BIL, TLT, UUP<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX CD금리액티브, KODEX 미국달러선물<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>ITA</b> (방위산업), <b>GDX</b> (금광기업) | 🇰🇷 <b>ARIRANG K방산</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "warning":
             st.warning(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ☂️ <b>[맞춤 전략] 조정장 방어 전략:</b> 안전자산 및 필수소비재 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> TLT, GLD, XLV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국채10년선물, ACE 골드선물(H)<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>XLU</b> (유틸리티), <b>XLP</b> (필수소비재) | 🇰🇷 <b>KODEX 미국S&P500유틸리티</b>
+            </div>
+            """, unsafe_allow_html=True)
         elif regime_type == "success":
             st.success(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                🚀 <b>[맞춤 전략] 강세장 공격 타격:</b> 지수 레버리지 및 주도 테마 중심<br>
+                🇺🇸 <b>미국 대표 지수:</b> QQQ, SOXX, SPY<br>
+                🇰🇷 <b>국내 연금/ISA:</b> TIGER 미국나스닥100, KODEX 미국반도체MV<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>BOTZ</b> (AI/로봇), <b>IBIT</b> (비트코인) | 🇰🇷 <b>KODEX 미국AI테크TOP10</b>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.info(f"**현재 시장 기상도:** {regime_title}\n\n{regime_desc}")
+            st.markdown("""
+            <div class='etf-box'>
+                ⚖️ <b>[맞춤 전략] 눈치보기 코어 전략:</b> 지수 방어 및 고배당 수익<br>
+                🇺🇸 <b>미국 대표 지수:</b> SPY, SCHD, USMV<br>
+                🇰🇷 <b>국내 연금/ISA:</b> KODEX 미국S&P500TR, TIGER 미국배당다우존스<br>
+                💡 <b>주목할 테마:</b> 🇺🇸 <b>PAVE</b> (미국 인프라), <b>JEPQ</b> (고배당) | 🇰🇷 <b>TIGER 미국배당+7%프리미엄</b>
+            </div>
+            """, unsafe_allow_html=True)
 
     with cal_col:
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
@@ -586,6 +618,10 @@ with tab1:
     cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
     cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
 
+
+# ==============================================================================
+# 탭 2: 상세 차트 분석 (사라졌던 16개 개별 지수 차트 복구 완료)
+# ==============================================================================
 with tab2:
     chart_cols = st.columns(2)
     with chart_cols[0]:
@@ -617,6 +653,36 @@ with tab2:
             ).properties(height=350)
             st.altair_chart(yield_chart, use_container_width=True)
 
+    st.divider()
+    st.subheader("📉 개별 지수 및 환율/원자재 추이")
+    mini_cols1 = st.columns(4)
+    with mini_cols1[0]: st.markdown(f"**S&P 500** `({last_dates.get('S&P500', '-')})`"); draw_mini_chart(df_market, 'S&P500')
+    with mini_cols1[1]: st.markdown(f"**나스닥** `({last_dates.get('나스닥', '-')})`"); draw_mini_chart(df_market, '나스닥')
+    with mini_cols1[2]: st.markdown(f"**필라델피아 반도체** `({last_dates.get('필라델피아 반도체', '-')})`"); draw_mini_chart(df_market, '필라델피아 반도체')
+    with mini_cols1[3]: st.markdown(f"**VIX 지수** `({last_dates.get('VIX', '-')})`"); draw_mini_chart(df_market, 'VIX')
+
+    mini_cols2 = st.columns(4)
+    with mini_cols2[0]: st.markdown(f"**코스피** `({last_dates.get('코스피', '-')})`"); draw_mini_chart(df_market, '코스피')
+    with mini_cols2[1]: st.markdown(f"**코스닥** `({last_dates.get('코스닥', '-')})`"); draw_mini_chart(df_market, '코스닥')
+    with mini_cols2[2]: st.markdown(f"**니케이 225** `({last_dates.get('니케이', '-')})`"); draw_mini_chart(df_market, '니케이')
+    with mini_cols2[3]: st.markdown(f"**CSI 300** `({last_dates.get('CSI300', '-')})`"); draw_mini_chart(df_market, 'CSI300')
+
+    mini_cols3 = st.columns(4)
+    with mini_cols3[0]: st.markdown(f"**원/달러 환율** `({last_dates.get('환율($/원)', '-')})`"); draw_mini_chart(df_market, '환율($/원)')
+    with mini_cols3[1]: st.markdown(f"**엔/원 환율 (100엔)** `({last_dates.get('엔/원 환율', '-')})`"); draw_mini_chart(df_market, '엔/원 환율')
+    with mini_cols3[2]: st.markdown(f"**WTI유** `({last_dates.get('WTI유', '-')})`"); draw_mini_chart(df_market, 'WTI유')
+    with mini_cols3[3]: st.markdown(f"**금 (Gold)** `({last_dates.get('금', '-')})`"); draw_mini_chart(df_market, '금')
+
+    mini_cols4 = st.columns(4)
+    with mini_cols4[0]: st.markdown(f"**미국 10년물** `({last_dates.get('미국10년물', '-')})`"); draw_mini_chart(df_market, '미국10년물')
+    with mini_cols4[1]: st.markdown(f"**미국 30년물** `({last_dates.get('미국30년물', '-')})`"); draw_mini_chart(df_market, '미국30년물')
+    with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
+    with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
+
+
+# ==============================================================================
+# 탭 3: 미국 섹터별 흐름 (11개 전체 복구)
+# ==============================================================================
 with tab3:
     st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
     st.markdown("##### 📊 주요 11대 섹터 상대수익률 비교 (YTD)")
@@ -653,6 +719,10 @@ with tab3:
     with sec_cols3[1]: st.markdown(f"**소재 (XLB)**"); draw_mini_chart(df_market, '소재(XLB)')
     with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)**"); draw_mini_chart(df_market, '부동산(XLRE)')
 
+
+# ==============================================================================
+# 탭 4: 국내 섹터별 흐름 (12개 전체 복구)
+# ==============================================================================
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
     st.markdown("##### 📊 주요 12대 국내 테마 상대수익률 비교 (YTD)")
@@ -690,21 +760,29 @@ with tab4:
     with kr_sec_cols3[2]: st.markdown(f"**화학**"); draw_mini_chart(df_market, 'K-화학')
     with kr_sec_cols3[3]: st.markdown(f"**건설**"); draw_mini_chart(df_market, 'K-건설')
 
+
 with tab5:
-    st.markdown("#### 📰 실시간 주요 경제 헤드라인")
+    st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
+
     with news_col1:
-        for news in news_data["KR"]: st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+        st.markdown("##### 🇰🇷 국내 경제/비즈니스 (Top 10)")
+        for news in news_data["KR"]:
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+
     with news_col2:
-        for news in news_data["US"]: st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+        st.markdown("##### 🌎 글로벌 경제/비즈니스 (Top 10)")
+        for news in news_data["US"]:
+            st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
+
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private) - 비밀번호 '1016' 및 원본 가격 기반 미니 차트 엔진
+# 🌟 탭 6: 내 보유종목 (환율 스케일링 엔진 및 오류 티커 완벽 수정)
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
-    # 🌟 비밀번호 1016 으로 세팅!
+    # 🌟 비밀번호 1016
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
     
     if pwd == "1016":
@@ -782,7 +860,6 @@ with tab6:
 
         st.divider()
 
-        # 🌟 통합 YTD 차트는 스케일링된 (100 기준) 데이터 사용
         st.markdown("##### 📈 보유종목 통합 YTD 상대수익률 비교 (시작=100)")
         df_port_hist, df_port_raw = get_portfolio_history()
         active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
@@ -807,18 +884,32 @@ with tab6:
                 chunk = active_holdings[i:i+4]
                 for j, holding_name in enumerate(chunk):
                     with cols[j]:
-                        latest_val = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
-                        ytd_ret = latest_val - 100
+                        # 최신 YTD 상대수익률(%) 계산
+                        latest_val_ytd = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
+                        ytd_ret = latest_val_ytd - 100
                         
                         holding_row = df_holdings[df_holdings['종목명'] == holding_name].iloc[0]
                         b_price = holding_row.get('매수단가_num', 0)
+                        c_price = holding_row.get('현재가_num', 0)
+                        
+                        # 🌟 원본(실제) 주가 데이터를 복사
+                        df_plot = df_port_raw[['일자', holding_name]].copy()
+                        
+                        # 🌟 해외주식(달러) 주가와 엑셀(원화) 매수단가 스케일링 동기화
+                        latest_val_raw = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
+                        if latest_val_raw > 0 and c_price > 0:
+                            ratio = c_price / latest_val_raw
+                            if ratio > 500: # 달러 원화 단위차이 500배 이상 시 환율 보정 적용
+                                df_plot[holding_name] = df_plot[holding_name] * ratio
+                        
+                        # 화면 표기용 포맷팅 (원화는 소수점 제거, 달러는 2자리 유지)
+                        current_display_val = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
+                        y_format = ',.0f' if current_display_val > 1000 else ',.2f'
                         
                         st.markdown(f"**{holding_name}** `(YTD {ytd_ret:+.1f}%)`")
-                        
-                        # 🌟 개별 미니차트는 이제 100 스케일이 아닌 '실제 가격(df_port_raw)' 데이터를 그려 넣습니다.
-                        draw_holding_mini_chart_raw(df_port_raw, holding_name, buy_line_y=b_price if b_price > 0 else None)
+                        draw_holding_mini_chart_raw(df_plot, holding_name, buy_line_y=b_price if b_price > 0 else None, y_format=y_format)
             
-            st.caption("※ 실선: 실제 가격 궤적 | 🔴 붉은 점선: 엑셀 기준 나의 평균 매수단가")
+            st.caption("※ 실선: 실제 가격 궤적 | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 나의 평균 매수단가")
         else:
             st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
 
