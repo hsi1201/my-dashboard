@@ -74,7 +74,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.93)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.94)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -412,6 +412,18 @@ def get_mdd_text(mdd_val):
     elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
     else: return f":blue[MDD {mdd_pct:.1f}%]"
 
+# 🌟 새로운 함수: 각 테마별 YTD 수익률을 실시간으로 계산해서 문자열로 반환
+def get_ytd_str(df, col):
+    if col in df.columns:
+        s = df[col].dropna()
+        if len(s) > 0:
+            first_val = s.iloc[0]
+            last_val = s.iloc[-1]
+            if first_val != 0:
+                ret = (last_val / first_val - 1) * 100
+                return f"`(YTD {ret:+.1f}%)`"
+    return ""
+
 def get_market_regime(latest_data):
     vix = latest_data.get('VIX', 20)  
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
@@ -687,7 +699,6 @@ def parse_asset_flow_excel(file):
     except Exception as e:
         return get_default_asset_data()
 
-# 🌟 해시값 비교로 완벽한 파일 업데이트 감지 및 즉시 화면 새로고침
 def process_global_upload(uploaded_file):
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
@@ -701,8 +712,6 @@ def process_global_upload(uploaded_file):
                 st.session_state.tab7_data = parse_asset_flow_excel(uploaded_file)
                 st.session_state.last_uploaded_hash = file_hash
                 st.toast("새로운 엑셀 데이터로 대시보드 완벽 동기화 완료!", icon="✅")
-                
-                # 🌟 화면에 그려지는 시점과 데이터 파싱 시점의 오차를 해결하기 위한 핵심 코드
                 st.rerun() 
             except Exception as e:
                 st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
@@ -711,7 +720,7 @@ def process_global_upload(uploaded_file):
 # UI 공통 헤더
 # ---------------------------------------------------------
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
-    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 창출될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
+    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
     st.markdown("""
     **📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내**
     본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
@@ -887,22 +896,23 @@ with tab3:
         
     st.divider()
     
+    # 🌟 원가격 차트 유지 + 종목 이름 옆에 실시간 YTD 수익률 뱃지 동적으로 삽입
     sec_cols1 = st.columns(4)
-    with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `Apple`"); draw_mini_chart(df_market, '기술(XLK)')
-    with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `Berkshire`"); draw_mini_chart(df_market, '금융(XLF)')
-    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)** `Eli Lilly`"); draw_mini_chart(df_market, '헬스케어(XLV)')
-    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)** `Amazon`"); draw_mini_chart(df_market, '자유소비재(XLY)')
+    with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `Apple` {get_ytd_str(df_market, '기술(XLK)')}"); draw_mini_chart(df_market, '기술(XLK)')
+    with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `Berkshire` {get_ytd_str(df_market, '금융(XLF)')}"); draw_mini_chart(df_market, '금융(XLF)')
+    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)** `Eli Lilly` {get_ytd_str(df_market, '헬스케어(XLV)')}"); draw_mini_chart(df_market, '헬스케어(XLV)')
+    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)** `Amazon` {get_ytd_str(df_market, '자유소비재(XLY)')}"); draw_mini_chart(df_market, '자유소비재(XLY)')
 
     sec_cols2 = st.columns(4)
-    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)** `Meta`"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
-    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)** `Caterpillar`"); draw_mini_chart(df_market, '산업재(XLI)')
-    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)** `P&G`"); draw_mini_chart(df_market, '필수소비재(XLP)')
-    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)** `ExxonMobil`"); draw_mini_chart(df_market, '에너지(XLE)')
+    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)** `Meta` {get_ytd_str(df_market, '커뮤니케이션(XLC)')}"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
+    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)** `Caterpillar` {get_ytd_str(df_market, '산업재(XLI)')}"); draw_mini_chart(df_market, '산업재(XLI)')
+    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)** `P&G` {get_ytd_str(df_market, '필수소비재(XLP)')}"); draw_mini_chart(df_market, '필수소비재(XLP)')
+    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)** `ExxonMobil` {get_ytd_str(df_market, '에너지(XLE)')}"); draw_mini_chart(df_market, '에너지(XLE)')
 
     sec_cols3 = st.columns(4)
-    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)** `NextEra`"); draw_mini_chart(df_market, '유틸리티(XLU)')
-    with sec_cols3[1]: st.markdown(f"**소재 (XLB)** `Linde`"); draw_mini_chart(df_market, '소재(XLB)')
-    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)** `Prologis`"); draw_mini_chart(df_market, '부동산(XLRE)')
+    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)** `NextEra` {get_ytd_str(df_market, '유틸리티(XLU)')}"); draw_mini_chart(df_market, '유틸리티(XLU)')
+    with sec_cols3[1]: st.markdown(f"**소재 (XLB)** `Linde` {get_ytd_str(df_market, '소재(XLB)')}"); draw_mini_chart(df_market, '소재(XLB)')
+    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)** `Prologis` {get_ytd_str(df_market, '부동산(XLRE)')}"); draw_mini_chart(df_market, '부동산(XLRE)')
 
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
@@ -926,22 +936,22 @@ with tab4:
     st.divider()
     
     kr_sec_cols1 = st.columns(4)
-    with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)** `SK하이닉스`"); draw_mini_chart(df_market, 'K-반도체')
-    with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)** `LG에너지솔루션`"); draw_mini_chart(df_market, 'K-2차전지')
-    with kr_sec_cols1[2]: st.markdown(f"**자동차 (KODEX 자동차)** `현대차`"); draw_mini_chart(df_market, 'K-자동차')
-    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)** `NAVER`"); draw_mini_chart(df_market, 'K-인터넷')
+    with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)** `SK하이닉스` {get_ytd_str(df_market, 'K-반도체')}"); draw_mini_chart(df_market, 'K-반도체')
+    with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)** `LG에너지솔루션` {get_ytd_str(df_market, 'K-2차전지')}"); draw_mini_chart(df_market, 'K-2차전지')
+    with kr_sec_cols1[2]: st.markdown(f"**자동차 (KODEX 자동차)** `현대차` {get_ytd_str(df_market, 'K-자동차')}"); draw_mini_chart(df_market, 'K-자동차')
+    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW (TIGER 소프트웨어)** `NAVER` {get_ytd_str(df_market, 'K-인터넷')}"); draw_mini_chart(df_market, 'K-인터넷')
 
     kr_sec_cols2 = st.columns(4)
-    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어 (TIGER 200 헬스케어)** `삼성바이오로직스`"); draw_mini_chart(df_market, 'K-헬스케어')
-    with kr_sec_cols2[1]: st.markdown(f"**은행/금융 (TIGER 은행)** `KB금융`"); draw_mini_chart(df_market, 'K-은행')
-    with kr_sec_cols2[2]: st.markdown(f"**기계/조선 (TIGER 200 중공업)** `HD현대중공업`"); draw_mini_chart(df_market, 'K-기계조선')
-    with kr_sec_cols2[3]: st.markdown(f"**방위산업 (PLUS K방산)** `한화에어로스페이스`"); draw_mini_chart(df_market, 'K-방산')
+    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어 (TIGER 200 헬스케어)** `삼성바이오로직스` {get_ytd_str(df_market, 'K-헬스케어')}"); draw_mini_chart(df_market, 'K-헬스케어')
+    with kr_sec_cols2[1]: st.markdown(f"**은행/금융 (TIGER 은행)** `KB금융` {get_ytd_str(df_market, 'K-은행')}"); draw_mini_chart(df_market, 'K-은행')
+    with kr_sec_cols2[2]: st.markdown(f"**기계/조선 (TIGER 200 중공업)** `HD현대중공업` {get_ytd_str(df_market, 'K-기계조선')}"); draw_mini_chart(df_market, 'K-기계조선')
+    with kr_sec_cols2[3]: st.markdown(f"**방위산업 (PLUS K방산)** `한화에어로스페이스` {get_ytd_str(df_market, 'K-방산')}"); draw_mini_chart(df_market, 'K-방산')
 
     kr_sec_cols3 = st.columns(4)
-    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터 (TIGER 200 커뮤니케이션서비스)** `하이브`"); draw_mini_chart(df_market, 'K-미디어엔터')
-    with kr_sec_cols3[1]: st.markdown(f"**철강/소재 (TIGER 200 철강소재)** `POSCO홀딩스`"); draw_mini_chart(df_market, 'K-철강')
-    with kr_sec_cols3[2]: st.markdown(f"**화학 (TIGER 200 에너지화학)** `LG화학`"); draw_mini_chart(df_market, 'K-화학')
-    with kr_sec_cols3[3]: st.markdown(f"**건설 (TIGER 200 건설)** `현대건설`"); draw_mini_chart(df_market, 'K-건설')
+    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터 (TIGER 200 커뮤니케이션서비스)** `하이브` {get_ytd_str(df_market, 'K-미디어엔터')}"); draw_mini_chart(df_market, 'K-미디어엔터')
+    with kr_sec_cols3[1]: st.markdown(f"**철강/소재 (TIGER 200 철강소재)** `POSCO홀딩스` {get_ytd_str(df_market, 'K-철강')}"); draw_mini_chart(df_market, 'K-철강')
+    with kr_sec_cols3[2]: st.markdown(f"**화학 (TIGER 200 에너지화학)** `LG화학` {get_ytd_str(df_market, 'K-화학')}"); draw_mini_chart(df_market, 'K-화학')
+    with kr_sec_cols3[3]: st.markdown(f"**건설 (TIGER 200 건설)** `현대건설` {get_ytd_str(df_market, 'K-건설')}"); draw_mini_chart(df_market, 'K-건설')
 
 with tab5:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
