@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.72)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.73)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -360,13 +360,19 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-def draw_holding_mini_chart(df, column_name):
+# 🌟 매수 단가 붉은 점선 기능이 추가된 보유종목 차트 함수
+def draw_holding_mini_chart(df, column_name, buy_line_y=None):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
         if chart_data.empty:
             st.markdown(f"*{column_name} 데이터 없음*")
             return
         min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
+        
+        if buy_line_y is not None:
+            min_val = min(min_val, buy_line_y)
+            max_val = max(max_val, buy_line_y)
+            
         padding = (max_val - min_val) * 0.1
         if padding == 0: padding = 1
         y_min, y_max = min_val - padding, max_val + padding
@@ -379,47 +385,47 @@ def draw_holding_mini_chart(df, column_name):
         )
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
-        rule = alt.Chart(pd.DataFrame({'y': [100]})).mark_rule(color='gray', strokeDash=[2, 2]).encode(y='y:Q')
-        chart = (area + line + rule).properties(height=160)
+        
+        # 연초 100 기준선 (옅은 회색)
+        rule_100 = alt.Chart(pd.DataFrame({'y': [100]})).mark_rule(color='gray', strokeWidth=1, opacity=0.3).encode(y='y:Q')
+        layers = [area, line, rule_100]
+        
+        # 🌟 내 평균 매수단가 라인 (붉은색 점선)
+        if buy_line_y is not None:
+            rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
+            layers.append(rule_buy)
+            
+        chart = alt.layer(*layers).properties(height=160)
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 신규: 원 그래프(도넛 차트) 생성 전용 함수
 def draw_pie_chart(df, color_scheme):
     df = df[df['현재금액'] > 0].copy()
     if df.empty:
         st.markdown("*데이터 없음*")
         return
-        
     df['비중'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1).astype(str) + '%'
-    
     chart = alt.Chart(df).mark_arc(innerRadius=40, stroke="#fff", strokeWidth=1).encode(
         theta=alt.Theta(field="현재금액", type="quantitative"),
         color=alt.Color(field="분류", type="nominal", legend=alt.Legend(title=None, orient="bottom", columns=3), scale=alt.Scale(scheme=color_scheme)),
         tooltip=['분류', alt.Tooltip('현재금액:Q', format=',.0f'), '비중']
     ).properties(height=280)
-    
     st.altair_chart(chart, use_container_width=True)
 
 
-# 🌟 엔진 업그레이드: 엑셀에서 자산군 데이터를 직접 파싱하도록 로직 추가
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
 
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
-    
     valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
     valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
     
-    # 지역그룹, 베이스국가, 자산군 파이차트용 데이터프레임 동적 생성
     df_region = valid_inv.groupby('지역그룹')['현재가격'].sum().reset_index()
     df_region.columns = ['분류', '현재금액']
-    
     df_base = valid_inv.groupby('베이스국가')['현재가격'].sum().reset_index()
     df_base.columns = ['분류', '현재금액']
-    
     df_asset = valid_inv.groupby('자산군')['현재가격'].sum().reset_index()
     df_asset.columns = ['분류', '현재금액']
     
@@ -474,6 +480,8 @@ def parse_portfolio_excel(file):
             '계좌 구분': current_account,
             '종목명': val,
             '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
+            '매수단가_num': buy_price,  # 🌟 백그라운드용 수치 데이터 추가
+            '현재가_num': cur_price,    # 🌟 백그라운드용 수치 데이터 추가
             '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
             '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
             '수익률(%)': f"{ret*100:+.2f}%",
@@ -725,19 +733,19 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 3가지 원 그래프(Pie Chart) 적용
+# 🌟 탭 6: 내 보유종목 (Private) - 비밀번호 '1016' 및 개별종목 매수단가 라인 추가
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
     
-    if pwd == "0000":
+    if pwd == "1016":
         st.success("인증 완료! 엑셀 기반 계좌 통계 데이터를 성공적으로 불러왔습니다.")
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
-        # 🌟 기본 파이차트 초기 샘플 데이터 세팅
+        # 기본 샘플 데이터 
         metrics = {
             "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
             "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
@@ -758,6 +766,8 @@ with tab6:
                 "카카오뱅크(세이프박스)"
             ],
             "보유수량": ["73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1", "520", "1", "250", "300", "20", "100", "1", "65", "14", "1", "1"],
+            "매수단가_num": [63969, 188498, 14132, 38781, 15877, 24866, 14671, 15866, 107595, 7655, 12147405, 15401, 2018773, 4187, 7623, 66065, 24595, 2878878, 51657, 253298, 2874694, 8000000],
+            "현재가_num": [109285, 181225, 13830, 34505, 15060, 26280, 14060, 15230, 87460, 7150, 12147405, 14815, 2018773, 3445, 6680, 53045, 25120, 2878878, 48718, 249064, 2874694, 8010127],
             "매수단가": ["₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877", "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405", "₩ 15,401", "₩ 2,018,773", "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878", "₩ 51,657", "₩ 253,298", "₩ 2,874,694", "₩ 8,000,000"],
             "현재가": ["₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060", "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405", "₩ 14,815", "₩ 2,018,773", "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878", "₩ 48,718", "₩ 249,064", "₩ 2,874,694", "₩ 8,010,127"],
             "수익률(%)": ["70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%", "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%", "-3.8%", "0.0%", "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%", "-5.7%", "-1.7%", "0.0%", "0.1%"],
@@ -792,18 +802,15 @@ with tab6:
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 🌟 3열 그리드로 신규 원 그래프(도넛 차트) 디자인 적용
         st.markdown("##### 🌍 포트폴리오 노출 통계 (자산군 / 지역 / 베이스국가)")
         chart_col1, chart_col2, chart_col3 = st.columns(3)
         
         with chart_col1:
             st.markdown("**📊 자산군별 비중**")
             draw_pie_chart(df_asset, 'set2')
-            
         with chart_col2:
             st.markdown("**📌 지역그룹별 비중**")
             draw_pie_chart(df_region, 'blues')
-
         with chart_col3:
             st.markdown("**📌 베이스국가별 비중**")
             draw_pie_chart(df_base, 'teals')
@@ -827,7 +834,7 @@ with tab6:
             st.altair_chart(port_line_chart, use_container_width=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("##### 🔍 개별 종목별 YTD 추이 (연초=100 기준)")
+            st.markdown("##### 🔍 개별 종목별 가격 추이 및 매수단가 라인")
             
             for i in range(0, len(active_holdings), 4):
                 cols = st.columns(4)
@@ -836,9 +843,21 @@ with tab6:
                     with cols[j]:
                         latest_val = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
                         ytd_ret = latest_val - 100
-                        ret_color = "red" if ytd_ret >= 0 else "blue"
-                        st.markdown(f"**{holding_name}** `({ytd_ret:+.1f}%)`")
-                        draw_holding_mini_chart(df_port_hist, holding_name)
+                        
+                        # 🌟 엑셀의 현재가/매수단가 비율을 사용하여, 차트 기준점(100) 스케일에 매수단가 라인 위치 계산
+                        holding_row = df_holdings[df_holdings['종목명'] == holding_name].iloc[0]
+                        b_price = holding_row.get('매수단가_num', 0)
+                        c_price = holding_row.get('현재가_num', 0)
+                        
+                        buy_line_y = None
+                        if b_price > 0 and c_price > 0:
+                            # 현재 YTD 차트값 * (나의 매수단가 / 엑셀 현재가) 
+                            buy_line_y = latest_val * (b_price / c_price)
+                        
+                        st.markdown(f"**{holding_name}** `(YTD {ytd_ret:+.1f}%)`")
+                        draw_holding_mini_chart(df_port_hist, holding_name, buy_line_y=buy_line_y)
+            
+            st.caption("※ 실선: YTD 가격 흐름 | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 나의 평균 매수단가")
         else:
             st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
 
@@ -846,7 +865,8 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         for acc in df_holdings["계좌 구분"].unique():
-            acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분"])
+            # UI 노출을 위해 백그라운드 계산용 _num 컬럼 제거
+            acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
             summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
             
             st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
@@ -854,6 +874,6 @@ with tab6:
             st.markdown("<br>", unsafe_allow_html=True)
         
     elif pwd != "":
-        st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
+        st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
     else:
         st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
