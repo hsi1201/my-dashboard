@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.77)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.78)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -247,12 +247,13 @@ latest_data = df_market.iloc[-1]
 
 @st.cache_data(ttl=3600)
 def get_portfolio_history():
+    # 🌟 KODEX 차이나CSI300 티커 283580 으로 완벽 교체 완료
     portfolio_tickers = {
         'KODEX 200': ('FDR', '069500'),
         'TIGER 미국나스닥100': ('FDR', '133690'),
         'KODEX 코스닥150': ('FDR', '229200'),
         'TIGER 일본니케이225': ('FDR', '241180'),
-        'KODEX 차이나CSI300': ('FDR', '192090'),
+        'KODEX 차이나CSI300': ('FDR', '283580'), 
         'TIGER 미국S&P500': ('FDR', '360750'),
         'ACE 미국S&P500미국채혼합50액티브': ('FDR', '438080'),
         'ACE 미국나스닥100미국채혼합50액티브': ('FDR', '438100'),
@@ -582,7 +583,7 @@ with tab1:
             """, unsafe_allow_html=True)
 
     with cal_col:
-        # 🌟 09/24 일정 복구 완료
+        # 🌟 누락되었던 09/24(목) 일정 100% 복구 완료
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
                 "**[이번 주 리뷰]**\n"
                 "- 09/18 (금): 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
@@ -884,8 +885,7 @@ with tab6:
                         st.markdown(f"**{holding_name}** `(YTD {ytd_ret:+.1f}%)`")
                         draw_holding_mini_chart_raw(df_plot, holding_name, buy_line_y=b_price if b_price > 0 else None, y_format=y_format)
             
-            # 🌟 수정주가 원리를 설명하는 디테일한 캡션 업데이트
-            st.caption("※ 실선: 주가 흐름 (분배금이 반영된 '수정주가' 기준) | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 나의 평균 매수단가")
+            st.caption("※ 실선: 실제 가격 흐름 (분배금이 반영된 '수정주가' 기준) | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 엑셀 기준 나의 평균 매수단가")
         else:
             st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
 
