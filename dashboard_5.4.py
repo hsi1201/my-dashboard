@@ -5,6 +5,7 @@ import yfinance as yf
 import FinanceDataReader as fdr
 import requests
 import xml.etree.ElementTree as ET
+import hashlib
 from streamlit_autorefresh import st_autorefresh 
 
 # 1. 웹페이지 기본 설정
@@ -13,7 +14,7 @@ st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", in
 # 🌟 [자동 갱신] 30분(1,800,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=1800000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입 (우측 상단 Streamlit 기본 툴바 복구 완료)
+# 🌟 [디자인 1] CSS 주입
 st.markdown("""
 <style>
 .block-container {
@@ -73,13 +74,13 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.90)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.92)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 🌟 [전역 상태관리] 탭 6, 탭 7 파일 동기화를 위한 기본 데이터 세팅
+# 🌟 [전역 상태관리] 기본 데이터 세팅
 # ---------------------------------------------------------
 def get_default_portfolio_data():
     metrics = {
@@ -149,7 +150,7 @@ def get_default_asset_data():
         {"분류": "월 여유금", "금액": "₩ 2,411,146", "비고": "생활비 사용 가능 범위"}
     ])
     df_fixed = pd.DataFrame({
-        "항목": ["학원비 (플루트/영어/미술 등)", "공과금 (관리비/가스/인터넷 등)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
+        "항목": ["학원비 (교육)", "공과금 (관리비/통신)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
         "금액": ["₩ 852,845", "₩ 357,590", "₩ 131,739", "₩ 327,094"]
     })
     df_bar = pd.DataFrame({
@@ -194,18 +195,6 @@ def get_market_data():
         except:
             pass 
 
-    yf_tickers = {
-        '^GSPC': 'S&P500', '^IXIC': '나스닥', 
-        '^N225': '니케이', 
-        '^KS11': '코스피', '^KQ11': '코스닥', 
-        'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
-        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
-        'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
-        'XLE': 'エ너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
-        'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
-        'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
-    }
-    
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -428,7 +417,7 @@ def get_market_regime(latest_data):
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
     if vix >= 30 or sp500_mdd <= -20: return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 각별히 유의하세요.", "error"
     elif vix >= 20 or sp500_mdd <= -10: return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
-    elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
+    elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장에 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 def draw_mini_chart(df, column_name):
@@ -511,8 +500,8 @@ def draw_pie_chart(df, color_scheme):
     st.altair_chart(chart, use_container_width=True)
 
 def parse_portfolio_excel(file):
-    df_stats = pd.read_excel(file, sheet_name='국가통계')
-    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
+    df_stats = pd.read_excel(file, sheet_name='국가통계', engine='openpyxl')
+    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0, engine='openpyxl')
 
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
     valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
@@ -610,7 +599,7 @@ def parse_portfolio_excel(file):
 
 def parse_asset_flow_excel(file):
     try:
-        df = pd.read_excel(file, sheet_name='자산현황', header=None)
+        df = pd.read_excel(file, sheet_name='자산현황', header=None, engine='openpyxl')
         
         def extract_table(df, start_keyword, col_offset=0):
             start_row = df[df[col_offset] == start_keyword].index
@@ -670,10 +659,25 @@ def parse_asset_flow_excel(file):
             "금액": [format_krw(pd.to_numeric(df.iloc[r, 5], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 8], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 11], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 14], errors='coerce'))]
         })
         
-        inc_sum = pd.to_numeric(df.iloc[14, 5], errors='coerce') if len(df)>14 else income
-        exp_sum = pd.to_numeric(df.iloc[15, 5], errors='coerce') if len(df)>15 else 0
-        sav_sum = pd.to_numeric(df.iloc[2, 11], errors='coerce') if len(df)>2 else 0
-        bal_sum = pd.to_numeric(df.iloc[16, 5], errors='coerce') if len(df)>16 else 0
+        # 🌟 수입/지출/저축/잔고 바 차트 스마트 추출 (줄 번호 고정 해제)
+        inc_sum, exp_sum, sav_sum, bal_sum = 0, 0, 0, 0
+        for row in range(len(df)):
+            for col in range(len(df.columns) - 1):
+                cell_val = str(df.iloc[row, col]).strip()
+                if '수입 합계' in cell_val:
+                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                    if pd.notna(v): inc_sum = v
+                elif '지출 합계' in cell_val:
+                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                    if pd.notna(v): exp_sum = v
+                elif '주택담보대출원금' in cell_val:
+                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                    if pd.notna(v): sav_sum = v
+                elif cell_val == '잔고':
+                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                    if pd.notna(v): bal_sum = v
+
+        if inc_sum == 0: inc_sum = income
         
         df_bar = pd.DataFrame({
             "항목": ["1. 총 수입", "2. 총 지출 (고정+변동)", "3. 주담대 원금 저축", "4. 잔고 (잉여금)"],
@@ -684,16 +688,20 @@ def parse_asset_flow_excel(file):
     except Exception as e:
         return get_default_asset_data()
 
+# 🌟 해시값 비교로 완벽한 파일 업데이트 감지
 def process_global_upload(uploaded_file):
     if uploaded_file is not None:
-        if st.session_state.get('last_uploaded_filename') != uploaded_file.name:
+        file_bytes = uploaded_file.getvalue()
+        file_hash = hashlib.md5(file_bytes).hexdigest()
+        
+        if st.session_state.get('last_uploaded_hash') != file_hash:
             try:
                 uploaded_file.seek(0)
                 st.session_state.tab6_data = parse_portfolio_excel(uploaded_file)
                 uploaded_file.seek(0)
                 st.session_state.tab7_data = parse_asset_flow_excel(uploaded_file)
-                st.session_state.last_uploaded_filename = uploaded_file.name
-                st.toast("업로드된 엑셀 파일 데이터로 두 탭 모두 완벽 동기화 완료!", icon="✅")
+                st.session_state.last_uploaded_hash = file_hash
+                st.toast("새로운 엑셀 데이터로 대시보드 완벽 동기화 완료!", icon="✅")
             except Exception as e:
                 st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
 
