@@ -6,6 +6,7 @@ import FinanceDataReader as fdr
 import requests
 import xml.etree.ElementTree as ET
 import hashlib
+import re  # 🌟 날짜 타임스탬프 필터링을 위한 정규표현식 라이브러리 추가
 from streamlit_autorefresh import st_autorefresh 
 
 # 1. 웹페이지 기본 설정
@@ -74,7 +75,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.2)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.3)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -412,7 +413,6 @@ def get_mdd_text(mdd_val):
     elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
     else: return f":blue[MDD {mdd_pct:.1f}%]"
 
-# 🌟 실수로 지워졌던 YTD 수익률 계산 함수 완벽 복구
 def get_ytd_str(df, col):
     if col in df.columns:
         s = df[col].dropna()
@@ -534,6 +534,10 @@ def parse_portfolio_excel(file):
     for idx, row in df_inv.iterrows():
         val = str(row[first_col]).strip()
         if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
+        
+        # 🌟 [버그 수정] 엑셀 하단에 찍히는 업데이트 날짜(타임스탬프) 행을 종목으로 인식하지 않도록 강제 스킵
+        if re.match(r'^\d{4}-\d{2}-\d{2}', val): continue
+            
         if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
             current_account = val
             continue
