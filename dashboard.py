@@ -74,7 +74,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.1)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.2)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -411,6 +411,18 @@ def get_mdd_text(mdd_val):
     elif mdd_pct >= -30: return f":red[MDD {mdd_pct:.1f}%]"
     elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
     else: return f":blue[MDD {mdd_pct:.1f}%]"
+
+# 🌟 실수로 지워졌던 YTD 수익률 계산 함수 완벽 복구
+def get_ytd_str(df, col):
+    if col in df.columns:
+        s = df[col].dropna()
+        if len(s) > 0:
+            first_val = s.iloc[0]
+            last_val = s.iloc[-1]
+            if first_val != 0:
+                ret = (last_val / first_val - 1) * 100
+                return f"`(YTD {ret:+.1f}%)`"
+    return ""
 
 def get_market_regime(latest_data):
     vix = latest_data.get('VIX', 20)  
@@ -1061,7 +1073,6 @@ with tab6:
             
             st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
             
-            # 🌟 [높이 자동 계산] 행당 36px + 헤더 여백 43px 부여
             dynamic_height = len(acc_data) * 36 + 43
             st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config, height=dynamic_height)
             
