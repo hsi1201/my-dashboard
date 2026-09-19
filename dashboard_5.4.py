@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.76)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.77)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -245,7 +245,6 @@ df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
 
-# 🌟 개별 종목 실제 가격 반영 및 완벽한 티커 세팅 완료
 @st.cache_data(ttl=3600)
 def get_portfolio_history():
     portfolio_tickers = {
@@ -288,10 +287,8 @@ def get_portfolio_history():
     df.ffill(inplace=True)
     df.bfill(inplace=True)
     
-    # 미니 차트를 위한 실제 주가(RAW) 보존
     df_raw = df.copy()
     
-    # 통합 비교 차트를 위한 상대 수익률(100스케일) 변환
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -371,7 +368,6 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 매수 단가 붉은 점선 및 동적 포맷팅 기능이 추가된 원본 차트 렌더러
 def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f'):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -538,9 +534,6 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
 
-# ==============================================================================
-# 탭 1: 종합 마켓 뷰 (사라졌던 ETF 추천 박스 복구 완료)
-# ==============================================================================
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
     weather_col, cal_col = st.columns([2, 1])
@@ -589,9 +582,13 @@ with tab1:
             """, unsafe_allow_html=True)
 
     with cal_col:
+        # 🌟 09/24 일정 복구 완료
         st.info("📅 **다가오는 주요 매크로 일정**\n\n"
-                "**[이번 주 리뷰]**\n- 09/18 (금): 일본 BOJ 기준금리 결정\n\n"
-                "**[다음 주 프리뷰]**\n- 09/25 (금): 🚨 **미국 8월 PCE 물가지수**")
+                "**[이번 주 리뷰]**\n"
+                "- 09/18 (금): 일본 BOJ 기준금리 결정 / 미국 네 마녀의 날\n\n"
+                "**[다음 주 프리뷰]**\n"
+                "- 09/24 (목): 파월 연준 의장 연설 / 미 신규 실업수당 청구\n"
+                "- 09/25 (금): 🚨 **미국 8월 개인소비지출(PCE) 물가지수**")
 
     st.subheader("📊 16개 핵심 지표 메트릭")
     cols1 = st.columns(4)
@@ -618,10 +615,6 @@ with tab1:
     cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
     cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
 
-
-# ==============================================================================
-# 탭 2: 상세 차트 분석 (사라졌던 16개 개별 지수 차트 복구 완료)
-# ==============================================================================
 with tab2:
     chart_cols = st.columns(2)
     with chart_cols[0]:
@@ -679,10 +672,6 @@ with tab2:
     with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
     with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
 
-
-# ==============================================================================
-# 탭 3: 미국 섹터별 흐름 (11개 전체 복구)
-# ==============================================================================
 with tab3:
     st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
     st.markdown("##### 📊 주요 11대 섹터 상대수익률 비교 (YTD)")
@@ -719,10 +708,6 @@ with tab3:
     with sec_cols3[1]: st.markdown(f"**소재 (XLB)**"); draw_mini_chart(df_market, '소재(XLB)')
     with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)**"); draw_mini_chart(df_market, '부동산(XLRE)')
 
-
-# ==============================================================================
-# 탭 4: 국내 섹터별 흐름 (12개 전체 복구)
-# ==============================================================================
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
     st.markdown("##### 📊 주요 12대 국내 테마 상대수익률 비교 (YTD)")
@@ -760,7 +745,6 @@ with tab4:
     with kr_sec_cols3[2]: st.markdown(f"**화학**"); draw_mini_chart(df_market, 'K-화학')
     with kr_sec_cols3[3]: st.markdown(f"**건설**"); draw_mini_chart(df_market, 'K-건설')
 
-
 with tab5:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
     news_col1, news_col2 = st.columns(2)
@@ -775,14 +759,9 @@ with tab5:
         for news in news_data["US"]:
             st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
-
-# ==============================================================================
-# 🌟 탭 6: 내 보유종목 (환율 스케일링 엔진 및 오류 티커 완벽 수정)
-# ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
-    # 🌟 비밀번호 1016
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
     
     if pwd == "1016":
@@ -884,7 +863,6 @@ with tab6:
                 chunk = active_holdings[i:i+4]
                 for j, holding_name in enumerate(chunk):
                     with cols[j]:
-                        # 최신 YTD 상대수익률(%) 계산
                         latest_val_ytd = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
                         ytd_ret = latest_val_ytd - 100
                         
@@ -892,24 +870,22 @@ with tab6:
                         b_price = holding_row.get('매수단가_num', 0)
                         c_price = holding_row.get('현재가_num', 0)
                         
-                        # 🌟 원본(실제) 주가 데이터를 복사
                         df_plot = df_port_raw[['일자', holding_name]].copy()
                         
-                        # 🌟 해외주식(달러) 주가와 엑셀(원화) 매수단가 스케일링 동기화
                         latest_val_raw = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
                         if latest_val_raw > 0 and c_price > 0:
                             ratio = c_price / latest_val_raw
-                            if ratio > 500: # 달러 원화 단위차이 500배 이상 시 환율 보정 적용
+                            if ratio > 500:
                                 df_plot[holding_name] = df_plot[holding_name] * ratio
                         
-                        # 화면 표기용 포맷팅 (원화는 소수점 제거, 달러는 2자리 유지)
                         current_display_val = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
                         y_format = ',.0f' if current_display_val > 1000 else ',.2f'
                         
                         st.markdown(f"**{holding_name}** `(YTD {ytd_ret:+.1f}%)`")
                         draw_holding_mini_chart_raw(df_plot, holding_name, buy_line_y=b_price if b_price > 0 else None, y_format=y_format)
             
-            st.caption("※ 실선: 실제 가격 궤적 | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 나의 평균 매수단가")
+            # 🌟 수정주가 원리를 설명하는 디테일한 캡션 업데이트
+            st.caption("※ 실선: 주가 흐름 (분배금이 반영된 '수정주가' 기준) | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 나의 평균 매수단가")
         else:
             st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
 
