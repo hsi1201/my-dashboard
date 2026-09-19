@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.86)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.87)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -373,7 +373,6 @@ def get_portfolio_history():
     df.bfill(inplace=True)
     
     df_raw = df.copy()
-    
     for col in df.columns:
         first_val = df[col].iloc[0]
         if first_val != 0:
@@ -386,7 +385,6 @@ def get_portfolio_history():
     df_raw.index.name = '일자'
     df_raw.reset_index(inplace=True)
     df_raw['일자'] = df_raw['일자'].dt.strftime('%Y-%m-%d')
-    
     return df, df_raw
 
 @st.cache_data(ttl=600) 
@@ -397,17 +395,13 @@ def get_news_data():
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
-        for item in kr_root.findall('.//item')[:10]: 
-            news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except:
-        news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in kr_root.findall('.//item')[:10]: news_dict["KR"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except: news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
-        for item in us_root.findall('.//item')[:10]:
-            news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
-    except:
-        news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
+        for item in us_root.findall('.//item')[:10]: news_dict["US"].append({"title": item.find('title').text, "link": item.find('link').text})
+    except: news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
     return news_dict
 
 news_data = get_news_data()
@@ -428,7 +422,6 @@ def get_market_regime(latest_data):
     elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
-# 🌟 세로선(Hover Line) 제거 버전
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna().copy()
@@ -452,7 +445,6 @@ def draw_mini_chart(df, column_name):
         area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
         line = base.mark_line(interpolate='monotone', size=2)
         
-        # Hover 수직선(selectors, rules) 레이어 제거
         chart = alt.layer(area, line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
@@ -512,7 +504,6 @@ def draw_pie_chart(df, color_scheme):
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
-
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
     valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
     valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
@@ -541,19 +532,12 @@ def parse_portfolio_excel(file):
             profit_val = tot_val - buy_val if pd.notna(buy_val) and pd.notna(tot_val) else 0
             ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
             realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
-            
             cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
             cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
-            
             account_summaries[current_account] = {
-                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0",
-                "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
-                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}",
-                "ret": f"{ret_val*100:+.2f}%",
-                "color": "red" if ret_val >= 0 else "blue",
-                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}",
-                "cash_amt": f"₩ {cash_amt:,.0f}",
-                "cash_weight": f"{cash_weight*100:.1f}%"
+                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0", "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
+                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}", "ret": f"{ret_val*100:+.2f}%", "color": "red" if ret_val >= 0 else "blue",
+                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}", "cash_amt": f"₩ {cash_amt:,.0f}", "cash_weight": f"{cash_weight*100:.1f}%"
             }
             continue
             
@@ -572,22 +556,14 @@ def parse_portfolio_excel(file):
         weight = 0 if pd.isna(weight) else weight
         
         rows_list.append({
-            '계좌 구분': current_account,
-            '종목명': val,
-            '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
-            '매수단가_num': buy_price,
-            '현재가_num': cur_price,
-            '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
-            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
-            '수익률(%)': f"{ret*100:+.2f}%",
-            '현재가치': f"₩ {cur_val:,.0f}",
-            '현재가치_num': cur_val,
-            '계좌내 비중(%)': f"{weight*100:.1f}%"
+            '계좌 구분': current_account, '종목명': val, '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
+            '매수단가_num': buy_price, '현재가_num': cur_price, '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
+            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-", '수익률(%)': f"{ret*100:+.2f}%",
+            '현재가치': f"₩ {cur_val:,.0f}", '현재가치_num': cur_val, '계좌내 비중(%)': f"{weight*100:.1f}%"
         })
         
     df_holdings = pd.DataFrame(rows_list)
-    if not df_holdings.empty:
-        df_holdings = df_holdings.drop(columns=['현재가치_num'])
+    if not df_holdings.empty: df_holdings = df_holdings.drop(columns=['현재가치_num'])
         
     total_realized = sum([float(str(account_summaries[acc]['realized']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['realized']])
     total_invested = sum([float(str(account_summaries[acc]['buy']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['buy']])
@@ -598,12 +574,8 @@ def parse_portfolio_excel(file):
     total_cash_weight = (total_cash / total_assets * 100) if total_assets > 0 else 0
             
     metrics = {
-        "총자산": f"₩ {total_assets:,.0f}",
-        "총매수금액": f"₩ {total_invested:,.0f}",
-        "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
-        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}",
-        "현금비중": f"{total_cash_weight:.1f}%",
-        "현금액": f"₩ {total_cash:,.0f}"
+        "총자산": f"₩ {total_assets:,.0f}", "총매수금액": f"₩ {total_invested:,.0f}", "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
+        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}", "현금비중": f"{total_cash_weight:.1f}%", "현금액": f"₩ {total_cash:,.0f}"
     }
     return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
 
@@ -812,7 +784,7 @@ with tab2:
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '지수', alt.Tooltip('상대수익률:Q', format='.2f')]
             ).properties(height=350)
             
-            # Hover Line 제거 및 기본 차트 적용
+            # Hover Line 제거
             st.altair_chart(line_chart, use_container_width=True)
 
     with chart_cols[1]:
@@ -828,7 +800,6 @@ with tab2:
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '국채', alt.Tooltip('금리(%):Q', format='.3f')]
             ).properties(height=350)
             
-            # Hover Line 제거 및 기본 차트 적용
             st.altair_chart(yield_chart, use_container_width=True)
 
     st.divider()
@@ -874,26 +845,27 @@ with tab3:
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=380)
         
-        # Hover Line 제거 및 기본 차트 적용
         st.altair_chart(sec_line_chart, use_container_width=True)
         
     st.divider()
+    
+    # 🌟 미국 섹터별 탑 티어 대표 종목(대장주) 라벨 추가
     sec_cols1 = st.columns(4)
-    with sec_cols1[0]: st.markdown(f"**기술 (XLK)**"); draw_mini_chart(df_market, '기술(XLK)')
-    with sec_cols1[1]: st.markdown(f"**금융 (XLF)**"); draw_mini_chart(df_market, '금융(XLF)')
-    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)**"); draw_mini_chart(df_market, '헬스케어(XLV)')
-    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)**"); draw_mini_chart(df_market, '자유소비재(XLY)')
+    with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `Apple`"); draw_mini_chart(df_market, '기술(XLK)')
+    with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `Berkshire`"); draw_mini_chart(df_market, '금융(XLF)')
+    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)** `Eli Lilly`"); draw_mini_chart(df_market, '헬스케어(XLV)')
+    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)** `Amazon`"); draw_mini_chart(df_market, '자유소비재(XLY)')
 
     sec_cols2 = st.columns(4)
-    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)**"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
-    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)**"); draw_mini_chart(df_market, '산업재(XLI)')
-    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)**"); draw_mini_chart(df_market, '필수소비재(XLP)')
-    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)**"); draw_mini_chart(df_market, '에너지(XLE)')
+    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)** `Meta`"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
+    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)** `Caterpillar`"); draw_mini_chart(df_market, '산업재(XLI)')
+    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)** `P&G`"); draw_mini_chart(df_market, '필수소비재(XLP)')
+    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)** `ExxonMobil`"); draw_mini_chart(df_market, '에너지(XLE)')
 
     sec_cols3 = st.columns(4)
-    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)**"); draw_mini_chart(df_market, '유틸리티(XLU)')
-    with sec_cols3[1]: st.markdown(f"**소재 (XLB)**"); draw_mini_chart(df_market, '소재(XLB)')
-    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)**"); draw_mini_chart(df_market, '부동산(XLRE)')
+    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)** `NextEra`"); draw_mini_chart(df_market, '유틸리티(XLU)')
+    with sec_cols3[1]: st.markdown(f"**소재 (XLB)** `Linde`"); draw_mini_chart(df_market, '소재(XLB)')
+    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)** `Prologis`"); draw_mini_chart(df_market, '부동산(XLRE)')
 
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
@@ -912,7 +884,6 @@ with tab4:
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=380)
         
-        # Hover Line 제거 및 기본 차트 적용
         st.altair_chart(kr_sec_line_chart, use_container_width=True)
         
     st.divider()
@@ -1002,7 +973,6 @@ with tab6:
                 tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
             ).properties(height=420)
             
-            # Hover Line 제거 및 기본 차트 적용
             st.altair_chart(port_line_chart, use_container_width=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
