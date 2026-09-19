@@ -74,8 +74,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.1)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + Investing 우회 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -171,30 +171,8 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
+    # 🌟 기존 문제가 되던 한국은행(ECOS) 연결 코드 삭제 완료!
     
-    if bok_api_key != "여기에_발급받은_API_키를_입력하세요":
-        try:
-            today_str = pd.Timestamp.today().strftime('%Y%m%d')
-            url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/100000/817Y002/D/20260101/{today_str}"
-            response = requests.get(url)
-            data = response.json()
-            
-            if 'StatisticSearch' in data:
-                rows = data['StatisticSearch']['row']
-                bok_df = pd.DataFrame(rows)
-                bok_df['TIME'] = pd.to_datetime(bok_df['TIME'])
-                bok_df['DATA_VALUE'] = bok_df['DATA_VALUE'].astype(float)
-                
-                df_10y = bok_df[bok_df['ITEM_CODE1'] == '010210000'][['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국10년물'}).set_index('일자')
-                df_30y = bok_df[bok_df['ITEM_CODE1'] == '010230000'][['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국30년물'}).set_index('일자')
-                
-                bok_final = pd.concat([df_10y, df_30y], axis=1)
-                bok_final.index = bok_final.index.normalize().tz_localize(None)
-                df_list.append(bok_final)
-        except:
-            pass 
-
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -243,7 +221,10 @@ def get_market_data():
     except:
         pass
 
+    # 🌟 FinanceDataReader를 활용해 Investing.com에서 한국 국채 금리를 우회 수집하도록 변경
     fdr_tickers = {
+        'KR10YT=RR': '한국10년물',   # ECOS 대체재 1
+        'KR30YT=RR': '한국30년물',   # ECOS 대체재 2
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      
         '305720': 'K-2차전지',     
@@ -412,7 +393,6 @@ def get_mdd_text(mdd_val):
     elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
     else: return f":blue[MDD {mdd_pct:.1f}%]"
 
-# 🌟 새로운 함수: 각 테마별 YTD 수익률을 실시간으로 계산해서 문자열로 반환
 def get_ytd_str(df, col):
     if col in df.columns:
         s = df[col].dropna()
