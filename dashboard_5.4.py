@@ -648,7 +648,7 @@ with tab6:
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
     
     # 🌟 여기에 원하는 비밀번호를 설정하세요 (현재 '0000')
-    if pwd == "0000":
+    if pwd == "1016":
         st.success("인증 완료! 계좌 정보를 안전하게 불러옵니다.")
         st.divider()
         
