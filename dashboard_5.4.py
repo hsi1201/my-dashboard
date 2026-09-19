@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.84)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.85)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -543,9 +543,11 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
     """)
 
 # ---------------------------------------------------------
-# 🌟 6개 탭 (Tabs) 분할
+# 🌟 7개 탭 (Tabs) 분할 - 자산 및 현금흐름 탭 추가
 # ---------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스", "🔒 내 보유종목", "💼 자산 및 현금흐름"
+])
 
 with tab1:
     st.subheader("💡 시장 기상도 및 전략")
@@ -757,7 +759,6 @@ with tab4:
         
     st.divider()
     
-    # 🌟 국내 테마 제목에 벤치마크 ETF 명시 적용
     kr_sec_cols1 = st.columns(4)
     with kr_sec_cols1[0]: st.markdown(f"**반도체 (KODEX 반도체)**"); draw_mini_chart(df_market, 'K-반도체')
     with kr_sec_cols1[1]: st.markdown(f"**2차전지 (TIGER 2차전지테마)**"); draw_mini_chart(df_market, 'K-2차전지')
@@ -793,7 +794,7 @@ with tab5:
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     
-    pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", type="password")
+    pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (보유종목 탭)", type="password")
     
     if pwd == "1016":
         st.success("인증 완료! 엑셀 기반 계좌 통계 데이터를 성공적으로 불러왔습니다.")
@@ -927,7 +928,6 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         
-        # 🌟 수량/금액/비중 컬럼 우측 정렬 완벽 적용
         col_config = {
             "종목명": st.column_config.TextColumn("종목명", width=250),
             "보유수량": st.column_config.TextColumn("보유수량", width=100, alignment="right"),
@@ -947,6 +947,123 @@ with tab6:
             st.markdown("<br>", unsafe_allow_html=True)
         
     elif pwd != "":
+        st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+    else:
+        st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
+
+# ==============================================================================
+# 🌟 신규 탭 7: 나의 자산 및 현금흐름 (자산현황 시트 연동)
+# ==============================================================================
+with tab7:
+    st.subheader("💼 종합 자산 및 현금흐름 (Private)")
+    
+    pwd2 = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (자산현황 탭)", type="password", key="pwd_tab7")
+    
+    if pwd2 == "1016":
+        st.success("인증 완료! 엑셀 기반 자산 현황 및 현금흐름 데이터를 성공적으로 불러왔습니다.")
+        
+        # 엑셀 자산현황 시트 원본 데이터 
+        df_total_asset_pie = pd.DataFrame([
+            {"분류": "부동산(주택) 순자산", "현재금액": 1050717757},
+            {"분류": "자동차 순자산", "현재금액": 25000000},
+            {"분류": "금융 순자산", "현재금액": 101166784}
+        ])
+        
+        df_finance_asset_pie = pd.DataFrame([
+            {"분류": "연금/ISA", "현재금액": 72660183},
+            {"분류": "주식투자", "현재금액": 18845288},
+            {"분류": "현금/기타", "현재금액": 9661313}
+        ])
+        
+        df_total_table = pd.DataFrame([
+            {"자산 항목": "부동산(주택) 시세", "금액": "₩ 1,300,000,000", "비고": "래미안장위퍼스트하이 25평"},
+            {"자산 항목": "주택담보대출", "금액": "-₩ 249,282,243", "비고": "국민은행 : 금리 4.21%"},
+            {"자산 항목": "부동산(주택) 순자산", "금액": "₩ 1,050,717,757", "비고": "시세 - 대출"},
+            {"자산 항목": "자동차 순자산", "금액": "₩ 25,000,000", "비고": "캠리 하이브리드 2019년식"},
+            {"자산 항목": "금융 순자산", "금액": "₩ 101,166,784", "비고": "IRP + ISA + 주식 + 현금"},
+            {"자산 항목": "총 순자산", "금액": "₩ 1,176,884,541", "비고": "아파트 + 자동차 + 금융자산"}
+        ])
+        
+        df_finance_table = pd.DataFrame([
+            {"항목": "IRP (개인형퇴직연금)", "금액": "₩ 61,937,610", "비고": "키움증권 : 지수 ETF"},
+            {"항목": "퇴직금 (HRS)", "금액": "₩ 1,000,000", "비고": "적립 (매월 대략 50만원)"},
+            {"항목": "ISA (개인종합자산관리)", "금액": "₩ 9,722,573", "비고": "키움증권 : 배당 ETF"},
+            {"항목": "국내주식", "금액": "₩ 9,317,028", "비고": "키움증권 : 국내 테마 ETF"},
+            {"항목": "해외주식", "금액": "₩ 9,528,260", "비고": "키움증권 : 해외 테마 ETF"},
+            {"항목": "가상화폐", "금액": "₩ 0", "비고": "빗썸 : 비트코인"},
+            {"항목": "현금 (비상금)", "금액": "₩ 8,010,127", "비고": "카카오뱅크 (세이프박스)"},
+            {"항목": "급여통장", "금액": "₩ 161,440", "비고": "신한은행 : 급여통장"},
+            {"항목": "외화예금", "금액": "₩ 1,022,036", "비고": "USD 372.83 + JPY 57,233"},
+            {"항목": "서울페이 / 상품권", "금액": "₩ 467,710", "비고": "성북사랑 + 온누리"},
+            {"항목": "금융 순자산 합계", "금액": "₩ 101,166,784", "비고": ""}
+        ])
+        
+        df_cashflow_table = pd.DataFrame([
+            {"분류": "월 실수령액 (수입)", "금액": "₩ 5,538,828", "비고": "월급 + 수당 + 경비"},
+            {"분류": "주담대 월 원리금", "금액": "-₩ 1,408,414", "비고": "국민은행 : 금리 4.21%"},
+            {"분류": "고정비 (교육/공과금 등)", "금액": "-₩ 1,669,268", "비고": "매월 고정 지출"},
+            {"분류": "울산계모임", "금액": "-₩ 50,000", "비고": "매월 고정 저축성"},
+            {"분류": "월 고정지출 합계", "금액": "-₩ 3,127,682", "비고": ""},
+            {"분류": "월 여유금 (순생활비 등)", "금액": "₩ 2,411,146", "비고": "생활비 사용 가능 범위"}
+        ])
+        
+        df_fixed_expenses = pd.DataFrame({
+            "항목": ["학원비 (플루트/영어/미술/음악)", "공과금 (관리비/가스/인터넷/통신)", "세금 (자동차/재산세)", "보험료 (종합/실비/어린이/운전자)"],
+            "금액": ["₩ 852,845", "₩ 357,590", "₩ 131,739", "₩ 327,094"]
+        })
+        
+        st.divider()
+
+        st.markdown("##### 💎 총 자산 및 여유 현금 요약")
+        m_cols = st.columns(4)
+        m_cols[0].metric("총 순자산 (Total Net Asset)", "₩ 1,176,884,541", "11억 7688만 원", delta_color="off")
+        m_cols[1].metric("부동산 순자산 (Real Estate)", "₩ 1,050,717,757", "비중: 89.3%", delta_color="off")
+        m_cols[2].metric("금융 순자산 (Financial Asset)", "₩ 101,166,784", "비중: 8.6%", delta_color="off")
+        m_cols[3].metric("월 여유금 (Monthly Spare Cash)", "₩ 2,411,146", "실수령액 대비 43.5%", delta_color="normal")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns([1, 1])
+        
+        col_config_asset = {
+            "금액": st.column_config.TextColumn("금액", alignment="right"),
+            "비고": st.column_config.TextColumn("비고", width=250)
+        }
+        
+        with col1:
+            st.markdown("#### 1. 자산 현황 (Asset Status)")
+            st.markdown("##### 📊 총자산 구성 비중")
+            draw_pie_chart(df_total_asset_pie, 'category10')
+            st.dataframe(df_total_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+            
+            st.markdown("##### 📊 금융자산 구성 비중")
+            draw_pie_chart(df_finance_asset_pie, 'set2')
+            st.dataframe(df_finance_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+
+        with col2:
+            st.markdown("#### 2. 월간 현금흐름 (Cash Flow)")
+            st.markdown("##### 📈 수입 vs 지출 요약")
+            
+            df_bar = pd.DataFrame({
+                "항목": ["1. 총 수입", "2. 총 지출 (고정+변동)", "3. 주담대 원금 저축", "4. 잔고 (잉여금)"],
+                "금액": [5538828, 3817400, 533853, 1187575]
+            })
+            
+            bar_chart = alt.Chart(df_bar).mark_bar(size=40).encode(
+                x=alt.X('항목:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('금액:Q', title=None, axis=alt.Axis(format='~s', gridOpacity=0.1)),
+                color=alt.Color('항목:N', legend=None, scale=alt.Scale(scheme='tableau10')),
+                tooltip=[alt.Tooltip('항목:N'), alt.Tooltip('금액:Q', format=',.0f')]
+            ).properties(height=280)
+            st.altair_chart(bar_chart, use_container_width=True)
+            
+            st.markdown("##### 🧾 월 현금흐름 상세 내역")
+            st.dataframe(df_cashflow_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+            
+            st.markdown("##### 🏦 월평균 고정지출 그룹 (가족 보험/교육비 등)")
+            st.dataframe(df_fixed_expenses, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")})
+
+    elif pwd2 != "":
         st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
     else:
         st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
