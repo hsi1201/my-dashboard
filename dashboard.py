@@ -74,7 +74,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.1)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -411,17 +411,6 @@ def get_mdd_text(mdd_val):
     elif mdd_pct >= -30: return f":red[MDD {mdd_pct:.1f}%]"
     elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
     else: return f":blue[MDD {mdd_pct:.1f}%]"
-
-def get_ytd_str(df, col):
-    if col in df.columns:
-        s = df[col].dropna()
-        if len(s) > 0:
-            first_val = s.iloc[0]
-            last_val = s.iloc[-1]
-            if first_val != 0:
-                ret = (last_val / first_val - 1) * 100
-                return f"`(YTD {ret:+.1f}%)`"
-    return ""
 
 def get_market_regime(latest_data):
     vix = latest_data.get('VIX', 20)  
@@ -1071,7 +1060,11 @@ with tab6:
             summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
             
             st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
-            st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config)
+            
+            # 🌟 [높이 자동 계산] 행당 36px + 헤더 여백 43px 부여
+            dynamic_height = len(acc_data) * 36 + 43
+            st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config, height=dynamic_height)
+            
             st.markdown("<br>", unsafe_allow_html=True)
         
     elif pwd != "":
@@ -1111,11 +1104,11 @@ with tab7:
             st.markdown("#### 1. 자산 현황 (Asset Status)")
             st.markdown("##### 📊 총자산 구성 비중")
             draw_pie_chart(df_t_pie, 'category10')
-            st.dataframe(df_t_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+            st.dataframe(df_t_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_t_table)*36 + 43)
             
             st.markdown("##### 📊 금융자산 구성 비중")
             draw_pie_chart(df_f_pie, 'set2')
-            st.dataframe(df_f_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+            st.dataframe(df_f_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_f_table)*36 + 43)
 
         with col2:
             st.markdown("#### 2. 월간 현금흐름 (Cash Flow)")
@@ -1130,10 +1123,10 @@ with tab7:
             st.altair_chart(bar_chart, use_container_width=True)
             
             st.markdown("##### 🧾 월 현금흐름 상세 내역")
-            st.dataframe(df_c_table, use_container_width=True, hide_index=True, column_config=col_config_asset)
+            st.dataframe(df_c_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_c_table)*36 + 43)
             
             st.markdown("##### 🏦 월평균 고정지출 그룹 (가족 보험/교육비 등)")
-            st.dataframe(df_fixed, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")})
+            st.dataframe(df_fixed, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")}, height=len(df_fixed)*36 + 43)
 
     elif pwd2 != "":
         st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
