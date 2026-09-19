@@ -76,7 +76,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.73)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.74)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -360,7 +360,6 @@ def draw_mini_chart(df, column_name):
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# 🌟 매수 단가 붉은 점선 기능이 추가된 보유종목 차트 함수
 def draw_holding_mini_chart(df, column_name, buy_line_y=None):
     if column_name in df.columns:
         chart_data = df[['일자', column_name]].dropna()
@@ -386,11 +385,9 @@ def draw_holding_mini_chart(df, column_name, buy_line_y=None):
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
         
-        # 연초 100 기준선 (옅은 회색)
         rule_100 = alt.Chart(pd.DataFrame({'y': [100]})).mark_rule(color='gray', strokeWidth=1, opacity=0.3).encode(y='y:Q')
         layers = [area, line, rule_100]
         
-        # 🌟 내 평균 매수단가 라인 (붉은색 점선)
         if buy_line_y is not None:
             rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
             layers.append(rule_buy)
@@ -412,7 +409,6 @@ def draw_pie_chart(df, color_scheme):
         tooltip=['분류', alt.Tooltip('현재금액:Q', format=',.0f'), '비중']
     ).properties(height=280)
     st.altair_chart(chart, use_container_width=True)
-
 
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
@@ -480,8 +476,8 @@ def parse_portfolio_excel(file):
             '계좌 구분': current_account,
             '종목명': val,
             '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
-            '매수단가_num': buy_price,  # 🌟 백그라운드용 수치 데이터 추가
-            '현재가_num': cur_price,    # 🌟 백그라운드용 수치 데이터 추가
+            '매수단가_num': buy_price,
+            '현재가_num': cur_price,
             '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
             '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
             '수익률(%)': f"{ret*100:+.2f}%",
@@ -511,20 +507,6 @@ def parse_portfolio_excel(file):
         "현금액": f"₩ {total_cash:,.0f}"
     }
     return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
-
-# ---------------------------------------------------------
-# UI 공통 헤더
-# ---------------------------------------------------------
-with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
-    st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
-    st.markdown("""
-    **📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내**
-    본 대시보드는 서버 차단(IP Block)을 방지하고 무결점 안정성을 유지하기 위해 **공식 거래소 API 및 통계청 데이터**를 최우선으로 사용합니다. 
-    장외 CFD나 실시간 브로커 데이터를 혼용하는 인베스팅닷컴과는 다음과 같은 수치 차이가 발생할 수 있습니다.
-    *   **WTI 원유 & 금:** 월물 교체(롤오버) 시점에 일시적으로 가격 갭이 발생할 수 있습니다.
-    *   **CSI 300:** 중국 통신망 오류를 우회하기 위해 국내 상장 추종 ETF의 과거 궤적을 활용하여 차트를 스케일링합니다.
-    *   **해외 지수:** 거래소 규정에 따라 15~20분 지연(Delay) 송출될 수 있습니다.
-    """)
 
 # ---------------------------------------------------------
 # 🌟 6개 탭 (Tabs) 분할
@@ -667,6 +649,10 @@ with tab2:
     with mini_cols4[2]: st.markdown(f"**한국 10년물** `({last_dates.get('한국10년물', '-')})`"); draw_mini_chart(df_market, '한국10년물')
     with mini_cols4[3]: st.markdown(f"**한국 30년물** `({last_dates.get('한국30년물', '-')})`"); draw_mini_chart(df_market, '한국30년물')
 
+
+# ==============================================================================
+# 🌟 탭 3: 미국 섹터별 흐름 (11개 전체 복원)
+# ==============================================================================
 with tab3:
     st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
     st.markdown("##### 📊 주요 11대 섹터 상대수익률 비교 (YTD)")
@@ -686,12 +672,31 @@ with tab3:
         st.altair_chart(sec_line_chart, use_container_width=True)
         
     st.divider()
+    # 🌟 1행 (4개)
     sec_cols1 = st.columns(4)
-    with sec_cols1[0]: st.markdown(f"**기술 (XLK)**"); draw_mini_chart(df_market, '기술(XLK)')
-    with sec_cols1[1]: st.markdown(f"**금융 (XLF)**"); draw_mini_chart(df_market, '금융(XLF)')
-    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)**"); draw_mini_chart(df_market, '헬스케어(XLV)')
-    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)**"); draw_mini_chart(df_market, '자유소비재(XLY)')
+    with sec_cols1[0]: st.markdown(f"**기술 (XLK)** `({last_dates.get('기술(XLK)', '-')})`"); draw_mini_chart(df_market, '기술(XLK)')
+    with sec_cols1[1]: st.markdown(f"**금융 (XLF)** `({last_dates.get('금융(XLF)', '-')})`"); draw_mini_chart(df_market, '금융(XLF)')
+    with sec_cols1[2]: st.markdown(f"**헬스케어 (XLV)** `({last_dates.get('헬스케어(XLV)', '-')})`"); draw_mini_chart(df_market, '헬스케어(XLV)')
+    with sec_cols1[3]: st.markdown(f"**자유소비재 (XLY)** `({last_dates.get('자유소비재(XLY)', '-')})`"); draw_mini_chart(df_market, '자유소비재(XLY)')
 
+    # 🌟 2행 (4개 복구)
+    sec_cols2 = st.columns(4)
+    with sec_cols2[0]: st.markdown(f"**커뮤니케이션 (XLC)** `({last_dates.get('커뮤니케이션(XLC)', '-')})`"); draw_mini_chart(df_market, '커뮤니케이션(XLC)')
+    with sec_cols2[1]: st.markdown(f"**산업재 (XLI)** `({last_dates.get('산업재(XLI)', '-')})`"); draw_mini_chart(df_market, '산업재(XLI)')
+    with sec_cols2[2]: st.markdown(f"**필수소비재 (XLP)** `({last_dates.get('필수소비재(XLP)', '-')})`"); draw_mini_chart(df_market, '필수소비재(XLP)')
+    with sec_cols2[3]: st.markdown(f"**에너지 (XLE)** `({last_dates.get('에너지(XLE)', '-')})`"); draw_mini_chart(df_market, '에너지(XLE)')
+
+    # 🌟 3행 (3개 복구)
+    sec_cols3 = st.columns(4)
+    with sec_cols3[0]: st.markdown(f"**유틸리티 (XLU)** `({last_dates.get('유틸리티(XLU)', '-')})`"); draw_mini_chart(df_market, '유틸리티(XLU)')
+    with sec_cols3[1]: st.markdown(f"**소재 (XLB)** `({last_dates.get('소재(XLB)', '-')})`"); draw_mini_chart(df_market, '소재(XLB)')
+    with sec_cols3[2]: st.markdown(f"**부동산 (XLRE)** `({last_dates.get('부동산(XLRE)', '-')})`"); draw_mini_chart(df_market, '부동산(XLRE)')
+    with sec_cols3[3]: st.empty()
+
+
+# ==============================================================================
+# 🌟 탭 4: 국내 섹터별 흐름 (12개 전체 복원)
+# ==============================================================================
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
     st.markdown("##### 📊 주요 12대 국내 테마 상대수익률 비교 (YTD)")
@@ -711,11 +716,27 @@ with tab4:
         st.altair_chart(kr_sec_line_chart, use_container_width=True)
         
     st.divider()
+    # 🌟 1행 (4개)
     kr_sec_cols1 = st.columns(4)
-    with kr_sec_cols1[0]: st.markdown(f"**반도체**"); draw_mini_chart(df_market, 'K-반도체')
-    with kr_sec_cols1[1]: st.markdown(f"**2차전지**"); draw_mini_chart(df_market, 'K-2차전지')
-    with kr_sec_cols1[2]: st.markdown(f"**자동차**"); draw_mini_chart(df_market, 'K-자동차')
-    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW**"); draw_mini_chart(df_market, 'K-인터넷')
+    with kr_sec_cols1[0]: st.markdown(f"**반도체** `({last_dates.get('K-반도체', '-')})`"); draw_mini_chart(df_market, 'K-반도체')
+    with kr_sec_cols1[1]: st.markdown(f"**2차전지** `({last_dates.get('K-2차전지', '-')})`"); draw_mini_chart(df_market, 'K-2차전지')
+    with kr_sec_cols1[2]: st.markdown(f"**자동차** `({last_dates.get('K-자동차', '-')})`"); draw_mini_chart(df_market, 'K-자동차')
+    with kr_sec_cols1[3]: st.markdown(f"**인터넷/SW** `({last_dates.get('K-인터넷', '-')})`"); draw_mini_chart(df_market, 'K-인터넷')
+
+    # 🌟 2행 (4개 복구)
+    kr_sec_cols2 = st.columns(4)
+    with kr_sec_cols2[0]: st.markdown(f"**바이오/헬스케어** `({last_dates.get('K-헬스케어', '-')})`"); draw_mini_chart(df_market, 'K-헬스케어')
+    with kr_sec_cols2[1]: st.markdown(f"**은행/금융** `({last_dates.get('K-은행', '-')})`"); draw_mini_chart(df_market, 'K-은행')
+    with kr_sec_cols2[2]: st.markdown(f"**기계/조선** `({last_dates.get('K-기계조선', '-')})`"); draw_mini_chart(df_market, 'K-기계조선')
+    with kr_sec_cols2[3]: st.markdown(f"**방위산업** `({last_dates.get('K-방산', '-')})`"); draw_mini_chart(df_market, 'K-방산')
+
+    # 🌟 3행 (4개 복구)
+    kr_sec_cols3 = st.columns(4)
+    with kr_sec_cols3[0]: st.markdown(f"**미디어/엔터** `({last_dates.get('K-미디어엔터', '-')})`"); draw_mini_chart(df_market, 'K-미디어엔터')
+    with kr_sec_cols3[1]: st.markdown(f"**철강/소재** `({last_dates.get('K-철강', '-')})`"); draw_mini_chart(df_market, 'K-철강')
+    with kr_sec_cols3[2]: st.markdown(f"**화학** `({last_dates.get('K-화학', '-')})`"); draw_mini_chart(df_market, 'K-화학')
+    with kr_sec_cols3[3]: st.markdown(f"**건설** `({last_dates.get('K-건설', '-')})`"); draw_mini_chart(df_market, 'K-건설')
+
 
 with tab5:
     st.markdown("#### 📰 실시간 주요 경제 헤드라인 (Google News 제공)")
@@ -733,7 +754,7 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private) - 비밀번호 '1016' 및 개별종목 매수단가 라인 추가
+# 🌟 탭 6: 내 보유종목 (Private)
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
@@ -745,7 +766,6 @@ with tab6:
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
-        # 기본 샘플 데이터 
         metrics = {
             "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
             "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
@@ -844,14 +864,12 @@ with tab6:
                         latest_val = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
                         ytd_ret = latest_val - 100
                         
-                        # 🌟 엑셀의 현재가/매수단가 비율을 사용하여, 차트 기준점(100) 스케일에 매수단가 라인 위치 계산
                         holding_row = df_holdings[df_holdings['종목명'] == holding_name].iloc[0]
                         b_price = holding_row.get('매수단가_num', 0)
                         c_price = holding_row.get('현재가_num', 0)
                         
                         buy_line_y = None
                         if b_price > 0 and c_price > 0:
-                            # 현재 YTD 차트값 * (나의 매수단가 / 엑셀 현재가) 
                             buy_line_y = latest_val * (b_price / c_price)
                         
                         st.markdown(f"**{holding_name}** `(YTD {ytd_ret:+.1f}%)`")
@@ -865,7 +883,6 @@ with tab6:
 
         st.markdown("##### 🧾 계좌별 상세 보유 종목 현황")
         for acc in df_holdings["계좌 구분"].unique():
-            # UI 노출을 위해 백그라운드 계산용 _num 컬럼 제거
             acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
             summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
             
