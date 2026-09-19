@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.66)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.67)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -298,7 +298,7 @@ def get_market_regime(latest_data):
     elif vix >= 20 or sp500_mdd <= -10:
         return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
     elif vix < 15 and sp500_mdd >= -3:
-        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
+        return "☀️ 안정적 강세장 (Risk 우위)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
     else:
         return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
@@ -564,7 +564,7 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 총매수금액 및 각 계좌별 현금비중 추가
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 계좌별 실현손익 추가!
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
@@ -578,7 +578,6 @@ with tab6:
         
         st.divider()
         
-        # 🌟 상단 요약 카드 4칸으로 확장 및 총 매수금액 추가
         st.markdown("##### 💰 총 자산 현황 요약 (2026-09-19 기준)")
         p_cols = st.columns(4)
         p_cols[0].metric("총 자산 (Total Assets)", "₩ 98,515,598", "+₩ 251,608 (0.3%)")
@@ -685,21 +684,21 @@ with tab6:
             ]
         })
         
-        # 🌟 현금 비중 및 현금액 데이터가 모두 반영된 딕셔너리
+        # 🌟 계좌별 실현손익(realized) 데이터 파라미터 추가!
         account_summaries = {
-            "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%"},
-            "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%"},
-            "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue", "cash_amt": "₩ 2,878,878", "cash_weight": "30.9%"},
-            "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue", "cash_amt": "₩ 2,874,694", "cash_weight": "30.2%"},
-            "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%"}
+            "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
+            "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%", "realized": "₩ 0"},
+            "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue", "cash_amt": "₩ 2,878,878", "cash_weight": "30.9%", "realized": "+₩ 929,728"},
+            "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue", "cash_amt": "₩ 2,874,694", "cash_weight": "30.2%", "realized": "+₩ 1,236,133"},
+            "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
         }
 
-        # 🌟 테이블 헤더에 현금 비중 렌더링 추가 적용
+        # 🌟 테이블 헤더에 💰 실현손익 추가 적용
         for acc in df_holdings["계좌 구분"].unique():
             acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분"])
-            summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": ""})
+            summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
             
-            st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
+            st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
             st.dataframe(acc_data, use_container_width=True, hide_index=True)
             st.markdown("<br>", unsafe_allow_html=True)
         
