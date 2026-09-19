@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.59)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.60)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -169,7 +169,7 @@ def get_market_data():
         '091160': 'K-반도체',      # KODEX 반도체
         '305720': 'K-2차전지',     # KODEX 2차전지산업
         '093240': 'K-자동차',      # KODEX 자동차
-        '093610': 'K-인터넷',      # KODEX 인터넷
+        '157490': 'K-인터넷',      # TIGER 소프트웨어 (KODEX 인터넷 대체)
         '266420': 'K-헬스케어',    # KODEX 헬스케어
         '091220': 'K-은행',        # KODEX 은행
         '102960': 'K-기계조선',    # KODEX 기계조선
@@ -232,7 +232,7 @@ def get_market_data():
             roll_max = df[col].cummax()
             df[f'{col} MDD'] = df[col] / roll_max - 1.0
             
-    # 🌟 상대수익률(시작=100) 계산군에 국내 12대 테마 ETF 추가
+    # 상대수익률(시작=100) 계산군에 국내 12대 테마 ETF 추가
     us_sector_names = ['기술(XLK)', '금융(XLF)', '헬스케어(XLV)', '에너지(XLE)', '자유소비재(XLY)', '산업재(XLI)', '필수소비재(XLP)', '유틸리티(XLU)', '소재(XLB)', '부동산(XLRE)', '커뮤니케이션(XLC)']
     kr_sector_names = ['K-반도체', 'K-2차전지', 'K-자동차', 'K-인터넷', 'K-헬스케어', 'K-은행', 'K-기계조선', 'K-철강', 'K-미디어엔터', 'K-건설', 'K-화학', 'K-방산']
     relative_cols = ['코스피', 'CSI300', '코스닥', '니케이', 'S&P500', '나스닥'] + us_sector_names + kr_sector_names
@@ -360,7 +360,7 @@ with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱
     """)
 
 # ---------------------------------------------------------
-# 🌟 5개 탭 (Tabs) 분할 (국내 섹터 흐름 탭 추가)
+# 🌟 5개 탭 (Tabs) 분할
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 종합 마켓 뷰", "📈 상세 차트 분석", "🏭 미국 섹터별 흐름", "🇰🇷 국내 섹터별 흐름", "📰 실시간 경제 뉴스"])
 
@@ -576,7 +576,7 @@ with tab3:
 
 
 # ==============================================================================
-# 🌟 탭 4: 국내 섹터별 흐름 (Korean Sector/Theme) - 신규
+# 탭 4: 국내 섹터별 흐름 (Korean Sector/Theme)
 # ==============================================================================
 with tab4:
     st.subheader("🇰🇷 국내 12대 대표 섹터/테마 자금 흐름")
@@ -593,7 +593,6 @@ with tab4:
         kr_sec_line_chart = alt.Chart(chart_data_kr_sec_rel).mark_line(opacity=0.8, strokeWidth=2).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
             y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
-            # 국내 차트는 미국과 시각적으로 구분되게 tableau20 팔레트 사용
             color=alt.Color('섹터:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=6)),
             tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '섹터', alt.Tooltip('상대수익률:Q', format='.2f')]
         ).properties(height=380)
