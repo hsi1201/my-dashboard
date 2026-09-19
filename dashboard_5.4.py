@@ -77,7 +77,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.68)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.69)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -246,12 +246,67 @@ def get_market_data():
 df_market, last_dates, changes, sync_time = get_market_data()
 latest_data = df_market.iloc[-1] 
 
+
+# 🌟 [신규 엔진] 보유종목 티커 매핑 및 YTD 히스토리 수집 엔진
+@st.cache_data(ttl=3600) # 1시간 캐싱 (API 호출 최소화)
+def get_portfolio_history():
+    # 엑셀의 종목명과 실제 티커(종목코드) 매핑 사전
+    portfolio_tickers = {
+        'KODEX 200': ('FDR', '069500'),
+        'TIGER 미국나스닥100': ('FDR', '133690'),
+        'KODEX 코스닥150': ('FDR', '229200'),
+        'TIGER 일본니케이225': ('FDR', '241180'),
+        'KODEX 차이나CSI300': ('FDR', '192090'),
+        'TIGER 미국S&P500': ('FDR', '360750'),
+        'ACE 미국S&P500미국채혼합50액티브': ('FDR', '465580'),
+        'ACE 미국나스닥100미국채혼합50액티브': ('FDR', '465590'),
+        'KODEX 국고채30년액티브': ('FDR', '448540'),
+        'ACE 미국30년국채액티브(H)': ('FDR', '453850'),
+        'TIGER 미국배당다우존스': ('FDR', '458730'),
+        '한온시스템': ('FDR', '018880'),
+        'TIGER 바이오TOP10': ('FDR', '364960'),
+        'PLUS K방산': ('FDR', '446720'), 
+        'SOL AI반도체소부장': ('FDR', '455850'),
+        '로봇공학 및 인공지능 글로벌엑스(BOTZ)': ('YF', 'BOTZ'),
+        '나스닥 스마트 그리드 인프라(GRID)': ('YF', 'GRID')
+    }
+    
+    df_list = []
+    for name, (src, ticker) in portfolio_tickers.items():
+        try:
+            if src == 'YF':
+                temp = yf.Ticker(ticker).history(start='2026-01-01')[['Close']]
+            else:
+                temp = fdr.DataReader(ticker, '2026-01-01')[['Close']]
+            temp.columns = [name]
+            temp.index = pd.to_datetime(temp.index).normalize().tz_localize(None)
+            temp = temp[~temp.index.duplicated(keep='last')]
+            df_list.append(temp)
+        except:
+            continue
+            
+    if not df_list: return pd.DataFrame()
+    
+    df = pd.concat(df_list, axis=1)
+    df.ffill(inplace=True)
+    df.bfill(inplace=True)
+    
+    # YTD 상대수익률(시작점 100)로 정규화
+    for col in df.columns:
+        first_val = df[col].iloc[0]
+        if first_val != 0:
+            df[col] = (df[col] / first_val) * 100
+            
+    df.index.name = '일자'
+    df.reset_index(inplace=True)
+    df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
+    return df
+
 @st.cache_data(ttl=600) 
 def get_news_data():
     news_dict = {"KR": [], "US": []}
     kr_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko"
     us_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en"
-    
     try:
         kr_resp = requests.get(kr_url, timeout=5)
         kr_root = ET.fromstring(kr_resp.content)
@@ -261,7 +316,6 @@ def get_news_data():
             news_dict["KR"].append({"title": title, "link": link})
     except:
         news_dict["KR"].append({"title": "국내 뉴스를 불러올 수 없습니다.", "link": "#"})
-        
     try:
         us_resp = requests.get(us_url, timeout=5)
         us_root = ET.fromstring(us_resp.content)
@@ -271,36 +325,25 @@ def get_news_data():
             news_dict["US"].append({"title": title, "link": link})
     except:
         news_dict["US"].append({"title": "해외 뉴스를 불러올 수 없습니다.", "link": "#"})
-        
     return news_dict
 
 news_data = get_news_data()
 
 def get_mdd_text(mdd_val):
     mdd_pct = mdd_val * 100
-    if mdd_pct >= -10:
-        return f":green[MDD {mdd_pct:.1f}%]"
-    elif mdd_pct >= -20:
-        return f":orange[MDD {mdd_pct:.1f}%]"
-    elif mdd_pct >= -30:
-        return f":red[MDD {mdd_pct:.1f}%]"
-    elif mdd_pct >= -40:
-        return f":violet[MDD {mdd_pct:.1f}%]"
-    else:
-        return f":blue[MDD {mdd_pct:.1f}%]"
+    if mdd_pct >= -10: return f":green[MDD {mdd_pct:.1f}%]"
+    elif mdd_pct >= -20: return f":orange[MDD {mdd_pct:.1f}%]"
+    elif mdd_pct >= -30: return f":red[MDD {mdd_pct:.1f}%]"
+    elif mdd_pct >= -40: return f":violet[MDD {mdd_pct:.1f}%]"
+    else: return f":blue[MDD {mdd_pct:.1f}%]"
 
 def get_market_regime(latest_data):
     vix = latest_data.get('VIX', 20)  
     sp500_mdd = latest_data.get('S&P500 MDD', 0) * 100
-    
-    if vix >= 30 or sp500_mdd <= -20:
-        return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 각별히 유의하세요.", "error"
-    elif vix >= 20 or sp500_mdd <= -10:
-        return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
-    elif vix < 15 and sp500_mdd >= -3:
-        return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
-    else:
-        return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
+    if vix >= 30 or sp500_mdd <= -20: return "⛈️ 심각한 약세장 (공포/패닉)", "시장에 극도의 공포가 만연해 있습니다. 리스크 관리에 각별히 유의하세요.", "error"
+    elif vix >= 20 or sp500_mdd <= -10: return "🌧️ 주의/조정장 (방어 필요)", "시장의 변동성이 커지며 조정 국면에 진입했습니다. 보수적인 접근이 필요합니다.", "warning"
+    elif vix < 15 and sp500_mdd >= -3: return "☀️ 안정적 강세장 (Risk On)", "시장의 변동성이 낮고 투자 심리가 매우 안정적인 강세장입니다.", "success"
+    else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 def draw_mini_chart(df, column_name):
     if column_name in df.columns:
@@ -308,46 +351,33 @@ def draw_mini_chart(df, column_name):
         if chart_data.empty:
             st.markdown(f"*{column_name} 데이터 없음*")
             return
-            
-        min_val = chart_data[column_name].min()
-        max_val = chart_data[column_name].max()
+        min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
         padding = (max_val - min_val) * 0.1
         if padding == 0: padding = min_val * 0.1 if min_val != 0 else 1
-        
-        y_min = min_val - padding
-        y_max = max_val + padding
-        
+        y_min, y_max = min_val - padding, max_val + padding
         y_axis_format = '.2f' if '년물' in column_name else '~s'
         
         base = alt.Chart(chart_data).encode(
             x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False, format='%m/%d', labelColor='gray', tickCount=5)),
             y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max]), 
                     axis=alt.Axis(grid=False, format=y_axis_format, tickCount=4, minExtent=35)),
-            tooltip=[
-                alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), 
-                alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')
-            ]
+            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
         )
-        
         area = base.mark_area(opacity=0.15, interpolate='monotone')
         line = base.mark_line(interpolate='monotone', size=2)
-        
         chart = (area + line).properties(height=180)
         st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(f"*{column_name} 데이터 없음*")
 
-# ---------------------------------------------------------
-# 🌟 신규: 엑셀 파싱 자동화 엔진 함수
-# ---------------------------------------------------------
+
+# 엑셀 파싱 자동화 엔진 함수
 def parse_portfolio_excel(file):
     df_stats = pd.read_excel(file, sheet_name='국가통계')
     df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
 
-    # 1. 요약 메트릭 추출
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
     
-    # 2. 지역 및 국가 차트 데이터 추출
     df_region = df_stats.iloc[10:14, [0, 1]].copy()
     df_region.columns = ["분류", "현재금액"]
     df_region['현재금액'] = pd.to_numeric(df_region['현재금액'], errors='coerce').fillna(0)
@@ -356,7 +386,6 @@ def parse_portfolio_excel(file):
     df_base.columns = ["분류", "현재금액"]
     df_base['현재금액'] = pd.to_numeric(df_base['현재금액'], errors='coerce').fillna(0)
     
-    # 3. 투자현황(계좌 및 종목) 파싱
     first_col = df_inv.columns[0]
     current_account = "알 수 없음"
     rows_list = []
@@ -364,15 +393,12 @@ def parse_portfolio_excel(file):
     
     for idx, row in df_inv.iterrows():
         val = str(row[first_col]).strip()
-        if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간':
-            continue
+        if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
             
-        # 계좌명 식별
         if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
             current_account = val
             continue
             
-        # 합계(요약) 데이터 식별
         if val == '합계':
             buy_val = pd.to_numeric(row.get('매수가격', 0), errors='coerce')
             tot_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
@@ -380,7 +406,6 @@ def parse_portfolio_excel(file):
             ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
             realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
             
-            # 예수금 합산하여 현금 비중 계산
             cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
             cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
             
@@ -396,7 +421,6 @@ def parse_portfolio_excel(file):
             }
             continue
             
-        # 개별 종목 데이터 식별
         qty = pd.to_numeric(row.get('수량', 0), errors='coerce')
         buy_price = pd.to_numeric(row.get('매수가', 0), errors='coerce')
         cur_price = pd.to_numeric(row.get('현재가', 0), errors='coerce')
@@ -427,7 +451,6 @@ def parse_portfolio_excel(file):
     if not df_holdings.empty:
         df_holdings = df_holdings.drop(columns=['현재가치_num'])
         
-    # 종합 요약 데이터 통합 계산
     total_realized = sum([float(str(account_summaries[acc]['realized']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['realized']])
     total_invested = sum([float(str(account_summaries[acc]['buy']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['buy']])
     total_cash = sum([float(str(account_summaries[acc]['cash_amt']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['cash_amt']])
@@ -674,7 +697,7 @@ with tab5:
 
 
 # ==============================================================================
-# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 자동화 파싱 엔진 적용
+# 🌟 탭 6: 내 보유종목 (Private Portfolio) - 자동 YTD 차트 엔진 결합
 # ==============================================================================
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
@@ -686,27 +709,16 @@ with tab6:
         
         uploaded_file = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'])
         
-        # 기본 샘플 데이터 세팅 (파일 미업로드 시 동작)
+        # 엑셀 파싱 초기 샘플 데이터
         metrics = {
-            "총자산": "₩ 98,515,598",
-            "총매수금액": "₩ 98,263,990",
-            "평가손익": "+₩ 251,608 (0.3%)",
-            "실현손익": "+₩ 9,627,261",
-            "현금비중": "28.4%",
-            "현금액": "₩ 27,929,877"
+            "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
+            "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
         }
         df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
         df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
         
         df_holdings = pd.DataFrame({
-            "계좌 구분": [
-                "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", 
-                "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기", "IRP - 장기",
-                "ISA - 중기", "ISA - 중기",
-                "국내주식 - 단기", "국내주식 - 단기", "국내주식 - 단기", "국내주식 - 단기", "국내주식 - 단기",
-                "해외주식 - 단기", "해외주식 - 단기", "해외주식 - 단기",
-                "비상금"
-            ],
+            "계좌 구분": ["IRP - 장기"]*11 + ["ISA - 중기"]*2 + ["국내주식 - 단기"]*5 + ["해외주식 - 단기"]*3 + ["비상금"],
             "종목명": [
                 "KODEX 200", "TIGER 미국나스닥100", "KODEX 코스닥150", "TIGER 일본니케이225", "KODEX 차이나CSI300",
                 "TIGER 미국S&P500", "ACE 미국S&P500미국채혼합50액티브", "ACE 미국나스닥100미국채혼합50액티브", 
@@ -716,53 +728,12 @@ with tab6:
                 "로봇공학 및 인공지능 글로벌엑스(BOTZ)", "나스닥 스마트 그리드 인프라(GRID)", "해외주식예수금",
                 "카카오뱅크(세이프박스)"
             ],
-            "보유수량": [
-                "73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1",
-                "520", "1",
-                "250", "300", "20", "100", "1",
-                "65", "14", "1",
-                "1"
-            ],
-            "매수단가": [
-                "₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877",
-                "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405",
-                "₩ 15,401", "₩ 2,018,773",
-                "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878",
-                "₩ 51,657", "₩ 253,298", "₩ 2,874,694",
-                "₩ 8,000,000"
-            ],
-            "현재가": [
-                "₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060",
-                "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405",
-                "₩ 14,815", "₩ 2,018,773",
-                "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878",
-                "₩ 48,718", "₩ 249,064", "₩ 2,874,694",
-                "₩ 8,010,127"
-            ],
-            "수익률(%)": [
-                "70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%",
-                "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%",
-                "-3.8%", "0.0%",
-                "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%",
-                "-5.7%", "-1.7%", "0.0%",
-                "0.1%"
-            ],
-            "현재가치": [
-                "₩ 7,977,805", "₩ 7,611,450", "₩ 3,872,400", "₩ 3,105,450", "₩ 1,807,200",
-                "₩ 9,198,000", "₩ 4,218,000", "₩ 4,569,000", "₩ 3,498,400", "₩ 3,932,500", "₩ 12,147,405",
-                "₩ 7,703,800", "₩ 2,018,773",
-                "₩ 861,250", "₩ 2,004,000", "₩ 1,060,900", "₩ 2,512,000", "₩ 2,878,878",
-                "₩ 3,166,670", "₩ 3,486,896", "₩ 2,874,694",
-                "₩ 8,010,127"
-            ],
-            "계좌내 비중(%)": [
-                "12.9%", "12.3%", "6.3%", "5.0%", "2.9%",
-                "14.9%", "6.8%", "7.4%", "5.6%", "6.3%", "19.6%",
-                "79.2%", "20.8%",
-                "9.2%", "21.5%", "11.4%", "27.0%", "30.9%",
-                "33.2%", "36.6%", "30.2%",
-                "100.0%"
-            ]
+            "보유수량": ["73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1", "520", "1", "250", "300", "20", "100", "1", "65", "14", "1", "1"],
+            "매수단가": ["₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877", "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405", "₩ 15,401", "₩ 2,018,773", "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878", "₩ 51,657", "₩ 253,298", "₩ 2,874,694", "₩ 8,000,000"],
+            "현재가": ["₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060", "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405", "₩ 14,815", "₩ 2,018,773", "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878", "₩ 48,718", "₩ 249,064", "₩ 2,874,694", "₩ 8,010,127"],
+            "수익률(%)": ["70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%", "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%", "-3.8%", "0.0%", "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%", "-5.7%", "-1.7%", "0.0%", "0.1%"],
+            "현재가치": ["₩ 7,977,805", "₩ 7,611,450", "₩ 3,872,400", "₩ 3,105,450", "₩ 1,807,200", "₩ 9,198,000", "₩ 4,218,000", "₩ 4,569,000", "₩ 3,498,400", "₩ 3,932,500", "₩ 12,147,405", "₩ 7,703,800", "₩ 2,018,773", "₩ 861,250", "₩ 2,004,000", "₩ 1,060,900", "₩ 2,512,000", "₩ 2,878,878", "₩ 3,166,670", "₩ 3,486,896", "₩ 2,874,694", "₩ 8,010,127"],
+            "계좌내 비중(%)": ["12.9%", "12.3%", "6.3%", "5.0%", "2.9%", "14.9%", "6.8%", "7.4%", "5.6%", "6.3%", "19.6%", "79.2%", "20.8%", "9.2%", "21.5%", "11.4%", "27.0%", "30.9%", "33.2%", "36.6%", "30.2%", "100.0%"]
         })
         account_summaries = {
             "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
@@ -772,7 +743,6 @@ with tab6:
             "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
         }
 
-        # 🌟 파일 업로드 시 자동 파싱 적용
         if uploaded_file is not None:
             try:
                 metrics, df_region, df_base, df_holdings, account_summaries = parse_portfolio_excel(uploaded_file)
@@ -780,7 +750,7 @@ with tab6:
             except Exception as e:
                 st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. 양식이 맞는지 확인해주세요. (오류: {e})")
         else:
-            st.info("파일을 업로드하면 기존 데이터 대신 업로드된 최신 엑셀 데이터를 화면에 렌더링합니다.")
+            st.info("💡 파일을 업로드하면 기존 샘플 데이터 대신 최신 엑셀 데이터를 화면에 렌더링합니다.")
             
         st.divider()
         
@@ -815,6 +785,30 @@ with tab6:
                 tooltip=[alt.Tooltip('분류:N'), alt.Tooltip('현재금액:Q', format=',.0f')]
             ).properties(height=300)
             st.altair_chart(base_chart, use_container_width=True)
+
+        st.divider()
+
+        # 🌟 내 보유종목 YTD 히스토리 차트 렌더링
+        st.markdown("##### 📈 내 보유종목 YTD 상대수익률 비교 (시작=100)")
+        df_port_hist = get_portfolio_history()
+        
+        # 엑셀(또는 샘플)에 존재하는 종목 중 티커 매핑이 성공하여 데이터를 가져온 종목만 필터링
+        active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
+        
+        if active_holdings:
+            cols_to_plot = ['일자'] + active_holdings
+            chart_data_port = df_port_hist[cols_to_plot].melt(id_vars=['일자'], var_name='종목', value_name='상대수익률')
+            
+            port_line_chart = alt.Chart(chart_data_port).mark_line(opacity=0.8, strokeWidth=2).encode(
+                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=False)),
+                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridOpacity=0.2)),
+                color=alt.Color('종목:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=4)),
+                tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
+            ).properties(height=450)
+            st.altair_chart(port_line_chart, use_container_width=True)
+            st.caption("※ 엑셀 종목명을 기반으로 시장 티커와 자동 매핑하여 추적합니다. 예수금 등은 제외됩니다.")
+        else:
+            st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다. (티커 매핑 필요)")
 
         st.divider()
 
