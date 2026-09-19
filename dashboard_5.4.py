@@ -1,18 +1,3 @@
-import subprocess
-import sys
-
-# 🌟 패키지 자동 설치 (환경 꼬임 원천 방지)
-def auto_install(package_name, import_name=None):
-    if import_name is None:
-        import_name = package_name
-    try:
-        __import__(import_name)
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
-
-auto_install("openpyxl")
-auto_install("streamlit-autorefresh", "streamlit_autorefresh")
-
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -28,7 +13,7 @@ st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", in
 # 🌟 [자동 갱신] 30분(1,800,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=1800000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입
+# 🌟 [디자인 1] CSS 주입 (우측 상단 Streamlit 기본 툴바 복구 완료)
 st.markdown("""
 <style>
 .block-container {
@@ -88,7 +73,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.91)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v6.90)</h2>
     <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">Yahoo Finance + Naver + 한국은행 ECOS 서버를 결합한 무결점 실시간 동기화</p>
 </div>
 """, unsafe_allow_html=True)
@@ -209,6 +194,18 @@ def get_market_data():
         except:
             pass 
 
+    yf_tickers = {
+        '^GSPC': 'S&P500', '^IXIC': '나스닥', 
+        '^N225': '니케이', 
+        '^KS11': '코스피', '^KQ11': '코스닥', 
+        'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
+        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
+        'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
+        'XLE': 'エ너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
+        'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
+        'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
+    }
+    
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -514,8 +511,8 @@ def draw_pie_chart(df, color_scheme):
     st.altair_chart(chart, use_container_width=True)
 
 def parse_portfolio_excel(file):
-    df_stats = pd.read_excel(file, sheet_name='국가통계', engine='openpyxl')
-    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0, engine='openpyxl')
+    df_stats = pd.read_excel(file, sheet_name='국가통계')
+    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0)
 
     total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
     valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
@@ -613,7 +610,7 @@ def parse_portfolio_excel(file):
 
 def parse_asset_flow_excel(file):
     try:
-        df = pd.read_excel(file, sheet_name='자산현황', header=None, engine='openpyxl')
+        df = pd.read_excel(file, sheet_name='자산현황', header=None)
         
         def extract_table(df, start_keyword, col_offset=0):
             start_row = df[df[col_offset] == start_keyword].index
