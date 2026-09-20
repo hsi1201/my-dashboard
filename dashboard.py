@@ -9,6 +9,7 @@ import hashlib
 import re
 import urllib.parse
 import urllib3
+import os
 from streamlit_autorefresh import st_autorefresh 
 
 # 🌟 SSL 보안 경고 메시지 숨김 처리
@@ -20,7 +21,7 @@ st.set_page_config(page_title="글로벌 마켓 대시보드", layout="wide", in
 # 🌟 [자동 갱신] 30분(1,800,000 밀리초)마다 화면 새로고침
 st_autorefresh(interval=1800000, limit=10000, key="data_refresh")
 
-# 🌟 [디자인 1] CSS 주입
+# 🌟 [디자인 1] CSS 주입 (반응형 텍스트 크기 조절 포함)
 st.markdown("""
 <style>
 .block-container {
@@ -48,6 +49,19 @@ st.markdown("""
     text-overflow: clip !important;
     line-height: 1.4 !important;
     font-size: 0.8rem !important; 
+}
+/* 🌟 추가: 금액 숫자(Value) 반응형 크기 조절 (세로모드 잘림 방지) */
+[data-testid="stMetricValue"], 
+[data-testid="stMetricValue"] > div {
+    font-size: 1.4rem !important;
+    letter-spacing: -0.5px !important;
+}
+@media (max-width: 768px) {
+    [data-testid="stMetricValue"], 
+    [data-testid="stMetricValue"] > div {
+        font-size: 1.15rem !important; 
+        letter-spacing: -0.5px !important;
+    }
 }
 .news-link {
     text-decoration: none;
@@ -80,94 +94,263 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.28)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.34 자동/수동 하이브리드)</h2>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 🌟 [전역 상태관리] 기본 데이터 세팅
+# 🌟 [데이터 파서] 엑셀 처리 함수 (오류 방지용 튼튼한 파싱)
 # ---------------------------------------------------------
-def get_default_portfolio_data():
+def clean_currency_str(val):
+    """₩, \, +, , 등 계산에 방해되는 문자열을 모두 안전하게 제거"""
+    if pd.isna(val) or val is None:
+        return "0"
+    cleaned = str(val).replace('+', '').replace('₩', '').replace('\\', '').replace(',', '').strip()
+    return cleaned if cleaned else "0"
+
+def parse_portfolio_excel(file):
+    df_stats = pd.read_excel(file, sheet_name='국가통계', engine='openpyxl')
+    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0, engine='openpyxl')
+
+    total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
+    valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
+    valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
+    
+    df_region = valid_inv.groupby('지역그룹')['현재가격'].sum().reset_index()
+    df_region.columns = ['분류', '현재금액']
+    df_base = valid_inv.groupby('베이스국가')['현재가격'].sum().reset_index()
+    df_base.columns = ['분류', '현재금액']
+    df_asset = valid_inv.groupby('자산군')['현재가격'].sum().reset_index()
+    df_asset.columns = ['분류', '현재금액']
+    
+    first_col = df_inv.columns[0]
+    current_account = "알 수 없음"
+    rows_list = []
+    account_summaries = {}
+    
+    for idx, row in df_inv.iterrows():
+        val = str(row[first_col]).strip()
+        if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
+        if re.match(r'^\d{4}-\d{2}-\d{2}', val): continue
+            
+        if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
+            current_account = val
+            continue
+        if val == '합계':
+            buy_val = pd.to_numeric(row.get('매수가격', 0), errors='coerce')
+            tot_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
+            profit_val = tot_val - buy_val if pd.notna(buy_val) and pd.notna(tot_val) else 0
+            ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
+            realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
+            
+            cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
+            cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
+            
+            account_summaries[current_account] = {
+                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0",
+                "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
+                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}",
+                "ret": f"{ret_val*100:+.2f}%",
+                "color": "red" if ret_val >= 0 else "blue",
+                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}",
+                "cash_amt": f"₩ {cash_amt:,.0f}",
+                "cash_weight": f"{cash_weight*100:.1f}%"
+            }
+            continue
+            
+        qty = pd.to_numeric(row.get('수량', 0), errors='coerce')
+        buy_price = pd.to_numeric(row.get('매수가', 0), errors='coerce')
+        cur_price = pd.to_numeric(row.get('현재가', 0), errors='coerce')
+        ret = pd.to_numeric(row.get('수익률', 0), errors='coerce')
+        cur_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
+        weight = pd.to_numeric(row.get('현재비중', 0), errors='coerce')
+        
+        qty = 0 if pd.isna(qty) else qty
+        buy_price = 0 if pd.isna(buy_price) else buy_price
+        cur_price = 0 if pd.isna(cur_price) else cur_price
+        ret = 0 if pd.isna(ret) else ret
+        cur_val = 0 if pd.isna(cur_val) else cur_val
+        weight = 0 if pd.isna(weight) else weight
+        
+        rows_list.append({
+            '계좌 구분': current_account,
+            '종목명': val,
+            '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
+            '매수단가_num': buy_price,
+            '현재가_num': cur_price,
+            '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
+            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
+            '수익률(%)': f"{ret*100:+.2f}%",
+            '현재가치': f"₩ {cur_val:,.0f}",
+            '현재가치_num': cur_val,
+            '계좌내 비중(%)': f"{weight*100:.1f}%"
+        })
+        
+    df_holdings = pd.DataFrame(rows_list)
+    if not df_holdings.empty:
+        df_holdings = df_holdings.drop(columns=['현재가치_num'])
+        
+    total_realized = sum([float(clean_currency_str(account_summaries[acc].get('realized', '0'))) for acc in account_summaries])
+    total_invested = sum([float(clean_currency_str(account_summaries[acc].get('buy', '0'))) for acc in account_summaries])
+    total_cash = sum([float(clean_currency_str(account_summaries[acc].get('cash_amt', '0'))) for acc in account_summaries])
+    
+    total_profit = total_assets - total_invested
+    total_profit_pct = (total_profit / total_invested * 100) if total_invested > 0 else 0
+    total_cash_weight = (total_cash / total_assets * 100) if total_assets > 0 else 0
+            
     metrics = {
-        "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
-        "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
-    }
-    df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
-    df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
-    df_asset = pd.DataFrame({"분류": ["주식", "채권", "혼합", "가상자산", "현금"], "현재금액": [54367821, 7430900, 8787000, 0, 27929877]})
-    df_holdings = pd.DataFrame({
-        "계좌 구분": ["IRP - 장기"]*11 + ["ISA - 중기"]*2 + ["국내주식 - 단기"]*5 + ["해외주식 - 단기"]*3 + ["비상금"],
-        "종목명": ["KODEX 200", "TIGER 미국나스닥100", "KODEX 코스닥150", "TIGER 일본니케이225", "KODEX 차이나CSI300", "TIGER 미국S&P500", "ACE 미국S&P500미국채혼합50액티브", "ACE 미국나스닥100미국채혼합50액티브", "KODEX 국고채30년액티브", "ACE 미국30년국채액티브(H)", "IRP예수금", "TIGER 미국배당다우존스", "ISA예수금", "한온시스템", "TIGER 바이오TOP10", "PLUS K방산", "SOL AI반도체소부장", "국내주식예수금", "로봇공학 및 인공지능 글로벌엑스(BOTZ)", "나스닥 스마트 그리드 인프라(GRID)", "해외주식예수금", "카카오뱅크(세이프박스)"],
-        "보유수량": ["73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1", "520", "1", "250", "300", "20", "100", "1", "65", "14", "1", "1"],
-        "매수단가_num": [63969, 188498, 14132, 38781, 15877, 24866, 14671, 15866, 107595, 7655, 12147405, 15401, 2018773, 4187, 7623, 66065, 24595, 2878878, 51657, 253298, 2874694, 8000000],
-        "현재가_num": [109285, 181225, 13830, 34505, 15060, 26280, 14060, 15230, 87460, 7150, 12147405, 14815, 2018773, 3445, 6680, 53045, 25120, 2878878, 48718, 249064, 2874694, 8010127],
-        "매수단가": ["₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877", "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405", "₩ 15,401", "₩ 2,018,773", "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878", "₩ 51,657", "₩ 253,298", "₩ 2,874,694", "₩ 8,000,000"],
-        "현재가": ["₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060", "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405", "₩ 14,815", "₩ 2,018,773", "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878", "₩ 48,718", "₩ 249,064", "₩ 2,874,694", "₩ 8,010,127"],
-        "수익률(%)": ["70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%", "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%", "-3.8%", "0.0%", "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%", "-5.7%", "-1.7%", "0.0%", "0.1%"],
-        "현재가치": ["₩ 7,977,805", "₩ 7,611,450", "₩ 3,872,400", "₩ 3,105,450", "₩ 1,807,200", "₩ 9,198,000", "₩ 4,218,000", "₩ 4,569,000", "₩ 3,498,400", "₩ 3,932,500", "₩ 12,147,405", "₩ 7,703,800", "₩ 2,018,773", "₩ 861,250", "₩ 2,004,000", "₩ 1,060,900", "₩ 2,512,000", "₩ 2,878,878", "₩ 3,166,670", "₩ 3,486,896", "₩ 2,874,694", "₩ 8,010,127"],
-        "계좌내 비중(%)": ["12.9%", "12.3%", "6.3%", "5.0%", "2.9%", "14.9%", "6.8%", "7.4%", "5.6%", "6.3%", "19.6%", "79.2%", "20.8%", "9.2%", "21.5%", "11.4%", "27.0%", "30.9%", "33.2%", "36.6%", "30.2%", "100.0%"]
-    })
-    account_summaries = {
-        "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
-        "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%", "realized": "₩ 0"},
-        "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue", "cash_amt": "₩ 2,878,878", "cash_weight": "30.9%", "realized": "+₩ 929,728"},
-        "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue", "cash_amt": "₩ 2,874,694", "cash_weight": "30.2%", "realized": "+₩ 1,236,133"},
-        "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
+        "총자산": f"₩ {total_assets:,.0f}",
+        "총매수금액": f"₩ {total_invested:,.0f}",
+        "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
+        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}",
+        "현금비중": f"{total_cash_weight:.1f}%",
+        "현금액": f"₩ {total_cash:,.0f}"
     }
     return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
 
-def get_default_asset_data():
+def parse_asset_flow_excel(file):
+    df = pd.read_excel(file, sheet_name='자산현황', header=None, engine='openpyxl')
+    
+    def extract_table(df, start_keyword, col_offset=0):
+        start_row = df[df[col_offset] == start_keyword].index
+        if len(start_row) == 0: return []
+        start_row = start_row[0] + 1
+        data = []
+        for i in range(start_row, len(df)):
+            item = str(df.iloc[i, col_offset]).strip()
+            if item == 'nan' or item == 'None' or not item: break
+            val = pd.to_numeric(df.iloc[i, col_offset+1], errors='coerce')
+            note = str(df.iloc[i, col_offset+2])
+            if note == 'nan': note = ""
+            data.append({"항목": item, "금액_num": val if pd.notna(val) else 0, "비고": note})
+        return data
+
+    def format_krw(val): return f"{'-' if val < 0 else ''}₩ {abs(val):,.0f}"
+
+    t_assets = extract_table(df, '총자산 구성', 0)
+    f_assets = extract_table(df, '금융자산 구성', 0)
+    c_flow = extract_table(df, '월 현금흐름', 0)
+    
+    df_t_table = pd.DataFrame([{"자산 항목": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in t_assets])
+    df_f_table = pd.DataFrame([{"항목": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in f_assets])
+    df_c_table = pd.DataFrame([{"분류": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in c_flow])
+
+    total_net = next((d['금액_num'] for d in t_assets if '총 순자산' in d['항목']), 0)
+    real_estate = next((d['금액_num'] for d in t_assets if '부동산' in d['항목'] and '순자산' in d['항목']), 0)
+    car = next((d['금액_num'] for d in t_assets if '자동차' in d['항목']), 0)
+    fin_asset = next((d['금액_num'] for d in t_assets if '금융 순자산' in d['항목']), 0)
+    
+    df_t_pie = pd.DataFrame([{"분류": "부동산(주택) 순자산", "현재금액": real_estate}, {"분류": "자동차 순자산", "현재금액": car}, {"분류": "금융 순자산", "현재금액": fin_asset}])
+
+    pension_isa = sum(d['금액_num'] for d in f_assets if any(x in d['항목'] for x in ['IRP', '퇴직금', 'ISA']))
+    stocks = sum(d['금액_num'] for d in f_assets if any(x in d['항목'] for x in ['주식', '가상화폐']))
+    cash_etc = fin_asset - pension_isa - stocks
+    if cash_etc < 0: cash_etc = 0
+
+    df_f_pie = pd.DataFrame([{"분류": "연금/ISA", "현재금액": pension_isa}, {"분류": "주식투자", "현재금액": stocks}, {"분류": "현금/기타", "현재금액": cash_etc}])
+
+    income = next((d['금액_num'] for d in c_flow if '실수령액' in d['항목']), 0)
+    spare_cash = next((d['금액_num'] for d in c_flow if '여유금' in d['항목']), 0)
+    real_estate_pct = (real_estate / total_net * 100) if total_net > 0 else 0
+    fin_asset_pct = (fin_asset / total_net * 100) if total_net > 0 else 0
+    spare_cash_pct = (spare_cash / income * 100) if income > 0 else 0
+
     metrics2 = {
-        "총순자산": "₩ 1,176,884,541", "총순자산_원": "11억 7688만 원", "부동산": "₩ 1,050,717,757", "부동산비중": "비중: 89.3%",
-        "금융": "₩ 101,166,784", "금융비중": "비중: 8.6%", "여유금": "₩ 2,411,146", "여유금비중": "실수령액 대비 43.5%"
+        "총순자산": format_krw(total_net), "총순자산_원": f"{total_net//100000000}억 {(total_net%100000000)//10000}만 원" if total_net >= 100000000 else format_krw(total_net),
+        "부동산": format_krw(real_estate), "부동산비중": f"비중: {real_estate_pct:.1f}%",
+        "금융": format_krw(fin_asset), "금융비중": f"비중: {fin_asset_pct:.1f}%",
+        "여유금": format_krw(spare_cash), "여유금비중": f"실수령액 대비 {spare_cash_pct:.1f}%"
     }
-    df_t_pie = pd.DataFrame([{"분류": "부동산(주택) 순자산", "현재금액": 1050717757}, {"분류": "자동차 순자산", "현재금액": 25000000}, {"분류": "금융 순자산", "현재금액": 101166784}])
-    df_f_pie = pd.DataFrame([{"분류": "연금/ISA", "현재금액": 72660183}, {"분류": "주식투자", "현재금액": 18845288}, {"분류": "현금/기타", "현재금액": 9661313}])
-    df_t_table = pd.DataFrame([
-        {"자산 항목": "부동산(주택) 시세", "금액": "₩ 1,300,000,000", "비고": "래미안장위퍼스트하이 25평, 호갱노노 기준"},
-        {"자산 항목": "주택담보대출", "금액": "-₩ 249,282,243", "비고": "국민은행 : 금리 4.21%"},
-        {"자산 항목": "부동산(주택) 순자산", "금액": "₩ 1,050,717,757", "비고": "시세 - 대출"},
-        {"자산 항목": "자동차 순자산", "금액": "₩ 25,000,000", "비고": "캠리 하이브리드 2019년식, 시세 - 감가상각"},
-        {"자산 항목": "금융 순자산", "금액": "₩ 101,166,784", "비고": "IRP + ISA + 국내계좌 + 해외계좌 + 비상금"},
-        {"자산 항목": "총 순자산", "금액": "₩ 1,176,884,541", "비고": "아파트 + 자동차 + 금융자산"}
-    ])
-    df_f_table = pd.DataFrame([
-        {"항목": "개인형퇴직연금(IRP)", "금액": "₩ 61,937,610", "비고": "키움증권 - 지수 ETF"},
-        {"항목": "퇴직금(HRS)", "금액": "₩ 1,000,000", "비고": "적립(매월 대략 50만원)"},
-        {"항목": "개인종합자산관리(ISA)", "금액": "₩ 9,722,573", "비고": "키움증권 : 배당 ETF"},
-        {"항목": "국내주식", "금액": "₩ 9,317,028", "비고": "키움증권 : 국내 테마 ETF"},
-        {"항목": "해외주식", "금액": "₩ 9,528,260", "비고": "키움증권 : 해외 테마 ETF"},
-        {"항목": "가상화폐", "금액": "₩ 0", "비고": "빗썸 : 비트코인"},
-        {"항목": "현금(비상금)", "금액": "₩ 8,010,127", "비고": "카카오뱅크(세이프박스)"},
-        {"항목": "급여통장", "금액": "₩ 161,440", "비고": "신한은행 : 급여통장"},
-        {"항목": "외화예금", "금액": "₩ 1,022,036", "비고": "USD 372.83 + JPY 57,233 (신한 SOL트래블)"},
-        {"항목": "서울페이", "금액": "₩ 453,673", "비고": "성북사랑상품권"},
-        {"항목": "온누리상품권", "금액": "₩ 14,037", "비고": "온누리상품권"},
-        {"항목": "내지갑", "금액": "₩ 0", "비고": "내지갑"},
-        {"항목": "금융 순자산", "금액": "₩ 101,166,784", "비고": "IRP + ISA + 국내외주식 + 비상금"}
-    ])
-    df_c_table = pd.DataFrame([
-        {"분류": "월 실수령액", "금액": "₩ 5,538,828", "비고": "신한은행: 급여통장"},
-        {"분류": "주담대 월 원리금", "금액": "-₩ 1,408,414", "비고": "국민은행: 금리 4.21%"},
-        {"분류": "고정비", "금액": "-₩ 1,669,268", "비고": "매월 고정 지출"},
-        {"분류": "울산계모임", "금액": "-₩ 50,000", "비고": "매월 고정 지출"},
-        {"분류": "월 고정지출", "금액": "-₩ 3,127,682", "비고": "매월 고정 지출 합계"},
-        {"분류": "월 여유금", "금액": "₩ 2,411,146", "비고": "생활비 사용 가능 범위"}
-    ])
+
+    fixed_row = df.isin(['월평균 고정지출']).any(axis=1).idxmax()
+    r = fixed_row + 1
     df_fixed = pd.DataFrame({
         "항목": ["학원비 (교육)", "공과금 (관리비/통신)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
-        "금액": ["₩ 852,845", "₩ 357,590", "₩ 131,739", "₩ 327,094"]
+        "금액": [format_krw(pd.to_numeric(df.iloc[r, 5], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 8], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 11], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 14], errors='coerce'))]
     })
+    
+    inc_sum, exp_sum, sav_sum, bal_sum = 0, 0, 0, 0
+    for row in range(len(df)):
+        for col in range(len(df.columns) - 1):
+            cell_val = str(df.iloc[row, col]).strip()
+            if '수입 합계' in cell_val:
+                v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                if pd.notna(v): inc_sum = v
+            elif '지출 합계' in cell_val:
+                v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                if pd.notna(v): exp_sum = v
+            elif '주택담보대출원금' in cell_val:
+                v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                if pd.notna(v): sav_sum = v
+            elif cell_val == '잔고':
+                v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
+                if pd.notna(v): bal_sum = v
+
+    if inc_sum == 0: inc_sum = income
+    
     df_bar = pd.DataFrame({
         "항목": ["1. 총 수입", "2. 총 지출 (고정+변동)", "3. 주담대 원금 저축", "4. 잔고 (잉여금)"],
-        "금액": [5538828, 3817400, 533853, 1721428]
+        "금액": [inc_sum, exp_sum, sav_sum, bal_sum]
     })
+    
     return metrics2, df_t_pie, df_f_pie, df_t_table, df_f_table, df_c_table, df_fixed, df_bar
 
-if "tab6_data" not in st.session_state:
-    st.session_state.tab6_data = get_default_portfolio_data()
-if "tab7_data" not in st.session_state:
-    st.session_state.tab7_data = get_default_asset_data()
+
+def get_default_portfolio_data():
+    return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
+
+def get_default_asset_data():
+    return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+# ---------------------------------------------------------
+# 🌟 [자동 로드 엔진 & 수동 업로드 상태 관리]
+# ---------------------------------------------------------
+LOCAL_EXCEL_PATH = "자산투자관리.xlsx"
+
+def get_file_mod_time():
+    return os.path.getmtime(LOCAL_EXCEL_PATH) if os.path.exists(LOCAL_EXCEL_PATH) else 0
+
+@st.cache_data(show_spinner=False)
+def load_local_excel_data(mod_time):
+    if os.path.exists(LOCAL_EXCEL_PATH):
+        try:
+            t6 = parse_portfolio_excel(LOCAL_EXCEL_PATH)
+            t7 = parse_asset_flow_excel(LOCAL_EXCEL_PATH)
+            return t6, t7
+        except Exception as e:
+            pass 
+    return get_default_portfolio_data(), get_default_asset_data()
+
+current_mod_time = get_file_mod_time()
+
+if "local_mod_time" not in st.session_state:
+    st.session_state.local_mod_time = current_mod_time
+    st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(current_mod_time)
+    st.session_state.last_uploaded_hash = None
+elif current_mod_time != st.session_state.local_mod_time:
+    st.session_state.local_mod_time = current_mod_time
+    st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(current_mod_time)
+    st.session_state.last_uploaded_hash = None
+
+def process_global_upload(uploaded_file):
+    if uploaded_file is not None:
+        file_bytes = uploaded_file.getvalue()
+        file_hash = hashlib.md5(file_bytes).hexdigest()
+        
+        if st.session_state.get('last_uploaded_hash') != file_hash:
+            try:
+                uploaded_file.seek(0)
+                st.session_state.tab6_data = parse_portfolio_excel(uploaded_file)
+                uploaded_file.seek(0)
+                st.session_state.tab7_data = parse_asset_flow_excel(uploaded_file)
+                st.session_state.last_uploaded_hash = file_hash
+                st.toast("수동 업로드된 엑셀 파일로 대시보드가 업데이트되었습니다!", icon="✅")
+                st.rerun() 
+            except Exception as e:
+                st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
+
+t6_metrics, df_region, df_base, df_asset, df_holdings, account_summaries = st.session_state.tab6_data
+t7_metrics, df_t_pie, df_f_pie, df_t_table, df_f_table, df_c_table, df_fixed, df_bar = st.session_state.tab7_data
 
 # ---------------------------------------------------------
 # 엔진 구현부 (데이터 파싱)
@@ -176,7 +359,7 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    # 🌟 [로컬/클라우드 하이브리드 엔진] ECOS 다이렉트 통신 후 실패 시 프록시 우회
+    # 🌟 [로컬/클라우드 하이브리드 엔진] ECOS 통신
     def fetch_ecos_hybrid(item_code, col_name):
         bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
         today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
@@ -190,14 +373,12 @@ def get_market_data():
             df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
             return df.set_index('일자')
             
-        # 1차: 로컬(PC) 환경을 위한 다이렉트 호출 (매우 빠름)
         try:
             r = requests.get(url, headers=headers, timeout=2.5, verify=False).json()
             if 'StatisticSearch' in r:
                 return parse_ecos(r)
         except: pass
         
-        # 2차: 클라우드 차단 우회용 프록시 (다이렉트 실패 시 작동, 무한대기 방지 타임아웃 적용)
         proxies = [
             f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
             f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
@@ -224,13 +405,36 @@ def get_market_data():
         kr_final.index = kr_final.index.normalize().tz_localize(None)
         df_list.append(kr_final)
 
-    # 🌟 야후 파이낸스 묶음 다운로드
+    # 🌟 VIX 독립 수집 최우선 실행 (야후 Bulk 오류 원천 차단)
+    try:
+        vix_df = yf.Ticker('^VIX').history(start='2026-01-01')[['Close']]
+        if not vix_df.empty:
+            vix_df.columns = ['VIX']
+            vix_df.index = pd.to_datetime(vix_df.index).normalize().tz_localize(None)
+            vix_df = vix_df[~vix_df.index.duplicated(keep='last')]
+            df_list.append(vix_df)
+        else:
+            raise ValueError
+    except:
+        # 야후 단독 호출도 실패하면 FRED(미 연준)에서 긁어옴
+        try:
+            vix_df = fdr.DataReader('FRED:VIXCLS', '2026-01-01')
+            if not vix_df.empty:
+                vix_df.columns = ['VIX']
+                vix_df.index = pd.to_datetime(vix_df.index).normalize().tz_localize(None)
+                vix_df = vix_df.dropna()
+                vix_df = vix_df[~vix_df.index.duplicated(keep='last')]
+                df_list.append(vix_df)
+        except:
+            pass
+
+    # 🌟 야후 파이낸스 묶음 다운로드 (VIX는 독립수집 했으므로 목록에서 제외)
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
         '^KS11': '코스피', '^KQ11': '코스닥', 
         'CL=F': 'WTI유', '^TNX': '미국10년물', '^TYX': '미국30년물',
-        '^VIX': 'VIX', '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
+        '^SOX': '필라델피아 반도체', 'GC=F': '금', 'JPYKRW=X': '엔/원 환율',
         'XLK': '기술(XLK)', 'XLF': '금융(XLF)', 'XLV': '헬스케어(XLV)',
         'XLE': '에너지(XLE)', 'XLY': '자유소비재(XLY)', 'XLI': '산업재(XLI)',
         'XLP': '필수소비재(XLP)', 'XLU': '유틸리티(XLU)', 'XLB': '소재(XLB)',
@@ -555,224 +759,20 @@ def draw_pie_chart(df, color_scheme):
     ).properties(height=280)
     st.altair_chart(chart, use_container_width=True)
 
-def parse_portfolio_excel(file):
-    df_stats = pd.read_excel(file, sheet_name='국가통계', engine='openpyxl')
-    df_inv = pd.read_excel(file, sheet_name='투자현황', skiprows=0, engine='openpyxl')
-
-    total_assets = pd.to_numeric(df_stats.iloc[2, 1], errors='coerce')
-    valid_inv = df_inv[df_inv[df_inv.columns[0]] != '합계'].copy()
-    valid_inv['현재가격'] = pd.to_numeric(valid_inv['현재가격'], errors='coerce').fillna(0)
-    
-    df_region = valid_inv.groupby('지역그룹')['현재가격'].sum().reset_index()
-    df_region.columns = ['분류', '현재금액']
-    df_base = valid_inv.groupby('베이스국가')['현재가격'].sum().reset_index()
-    df_base.columns = ['분류', '현재금액']
-    df_asset = valid_inv.groupby('자산군')['현재가격'].sum().reset_index()
-    df_asset.columns = ['분류', '현재금액']
-    
-    first_col = df_inv.columns[0]
-    current_account = "알 수 없음"
-    rows_list = []
-    account_summaries = {}
-    
-    for idx, row in df_inv.iterrows():
-        val = str(row[first_col]).strip()
-        if pd.isna(row[first_col]) or val == 'nan' or val == '현재 날짜 및 시간': continue
-        
-        if re.match(r'^\d{4}-\d{2}-\d{2}', val): continue
-            
-        if val in ['IRP - 장기', 'ISA - 중기', '국내주식 - 단기', '해외주식 - 단기', '비상금', '가상화폐', '부동산']:
-            current_account = val
-            continue
-        if val == '합계':
-            buy_val = pd.to_numeric(row.get('매수가격', 0), errors='coerce')
-            tot_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
-            profit_val = tot_val - buy_val if pd.notna(buy_val) and pd.notna(tot_val) else 0
-            ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
-            realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
-            
-            cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and ('예수금' in r['종목명'] or '세이프박스' in r['종목명'])])
-            cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
-            
-            account_summaries[current_account] = {
-                "buy": f"₩ {buy_val:,.0f}" if pd.notna(buy_val) else "₩ 0",
-                "total": f"₩ {tot_val:,.0f}" if pd.notna(tot_val) else "₩ 0",
-                "profit": f"{'+' if profit_val > 0 else ''}₩ {profit_val:,.0f}",
-                "ret": f"{ret_val*100:+.2f}%",
-                "color": "red" if ret_val >= 0 else "blue",
-                "realized": f"{'+' if realized > 0 else ''}₩ {realized:,.0f}",
-                "cash_amt": f"₩ {cash_amt:,.0f}",
-                "cash_weight": f"{cash_weight*100:.1f}%"
-            }
-            continue
-            
-        qty = pd.to_numeric(row.get('수량', 0), errors='coerce')
-        buy_price = pd.to_numeric(row.get('매수가', 0), errors='coerce')
-        cur_price = pd.to_numeric(row.get('현재가', 0), errors='coerce')
-        ret = pd.to_numeric(row.get('수익률', 0), errors='coerce')
-        cur_val = pd.to_numeric(row.get('현재가격', 0), errors='coerce')
-        weight = pd.to_numeric(row.get('현재비중', 0), errors='coerce')
-        
-        qty = 0 if pd.isna(qty) else qty
-        buy_price = 0 if pd.isna(buy_price) else buy_price
-        cur_price = 0 if pd.isna(cur_price) else cur_price
-        ret = 0 if pd.isna(ret) else ret
-        cur_val = 0 if pd.isna(cur_val) else cur_val
-        weight = 0 if pd.isna(weight) else weight
-        
-        rows_list.append({
-            '계좌 구분': current_account,
-            '종목명': val,
-            '보유수량': f"{qty:,.0f}" if qty > 0 else "-",
-            '매수단가_num': buy_price,
-            '현재가_num': cur_price,
-            '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
-            '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
-            '수익률(%)': f"{ret*100:+.2f}%",
-            '현재가치': f"₩ {cur_val:,.0f}",
-            '현재가치_num': cur_val,
-            '계좌내 비중(%)': f"{weight*100:.1f}%"
-        })
-        
-    df_holdings = pd.DataFrame(rows_list)
-    if not df_holdings.empty:
-        df_holdings = df_holdings.drop(columns=['현재가치_num'])
-        
-    total_realized = sum([float(str(account_summaries[acc]['realized']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['realized']])
-    total_invested = sum([float(str(account_summaries[acc]['buy']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['buy']])
-    total_cash = sum([float(str(account_summaries[acc]['cash_amt']).replace('+','').replace('₩','').replace(',','').strip()) for acc in account_summaries if account_summaries[acc]['cash_amt']])
-    
-    total_profit = total_assets - total_invested
-    total_profit_pct = (total_profit / total_invested * 100) if total_invested > 0 else 0
-    total_cash_weight = (total_cash / total_assets * 100) if total_assets > 0 else 0
-            
-    metrics = {
-        "총자산": f"₩ {total_assets:,.0f}",
-        "총매수금액": f"₩ {total_invested:,.0f}",
-        "평가손익": f"{'+' if total_profit > 0 else ''}₩ {total_profit:,.0f} ({total_profit_pct:+.1f}%)",
-        "실현손익": f"{'+' if total_realized > 0 else ''}₩ {total_realized:,.0f}",
-        "현금비중": f"{total_cash_weight:.1f}%",
-        "현금액": f"₩ {total_cash:,.0f}"
-    }
-    return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
-
-def parse_asset_flow_excel(file):
-    try:
-        df = pd.read_excel(file, sheet_name='자산현황', header=None, engine='openpyxl')
-        
-        def extract_table(df, start_keyword, col_offset=0):
-            start_row = df[df[col_offset] == start_keyword].index
-            if len(start_row) == 0: return []
-            start_row = start_row[0] + 1
-            data = []
-            for i in range(start_row, len(df)):
-                item = str(df.iloc[i, col_offset]).strip()
-                if item == 'nan' or item == 'None' or not item: break
-                val = pd.to_numeric(df.iloc[i, col_offset+1], errors='coerce')
-                note = str(df.iloc[i, col_offset+2])
-                if note == 'nan': note = ""
-                data.append({"항목": item, "금액_num": val if pd.notna(val) else 0, "비고": note})
-            return data
-
-        def format_krw(val): return f"{'-' if val < 0 else ''}₩ {abs(val):,.0f}"
-
-        t_assets = extract_table(df, '총자산 구성', 0)
-        f_assets = extract_table(df, '금융자산 구성', 0)
-        c_flow = extract_table(df, '월 현금흐름', 0)
-        
-        df_t_table = pd.DataFrame([{"자산 항목": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in t_assets])
-        df_f_table = pd.DataFrame([{"항목": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in f_assets])
-        df_c_table = pd.DataFrame([{"분류": d["항목"], "금액": format_krw(d["금액_num"]), "비고": d["비고"]} for d in c_flow])
-
-        total_net = next((d['금액_num'] for d in t_assets if '총 순자산' in d['항목']), 0)
-        real_estate = next((d['금액_num'] for d in t_assets if '부동산' in d['항목'] and '순자산' in d['항목']), 0)
-        car = next((d['금액_num'] for d in t_assets if '자동차' in d['항목']), 0)
-        fin_asset = next((d['금액_num'] for d in t_assets if '금융 순자산' in d['항목']), 0)
-        
-        df_t_pie = pd.DataFrame([{"분류": "부동산(주택) 순자산", "현재금액": real_estate}, {"분류": "자동차 순자산", "현재금액": car}, {"분류": "금융 순자산", "현재금액": fin_asset}])
-
-        pension_isa = sum(d['금액_num'] for d in f_assets if any(x in d['항목'] for x in ['IRP', '퇴직금', 'ISA']))
-        stocks = sum(d['금액_num'] for d in f_assets if any(x in d['항목'] for x in ['주식', '가상화폐']))
-        cash_etc = fin_asset - pension_isa - stocks
-        if cash_etc < 0: cash_etc = 0
-
-        df_f_pie = pd.DataFrame([{"분류": "연금/ISA", "현재금액": pension_isa}, {"분류": "주식투자", "현재금액": stocks}, {"분류": "현금/기타", "현재금액": cash_etc}])
-
-        income = next((d['금액_num'] for d in c_flow if '실수령액' in d['항목']), 0)
-        spare_cash = next((d['금액_num'] for d in c_flow if '여유금' in d['항목']), 0)
-        real_estate_pct = (real_estate / total_net * 100) if total_net > 0 else 0
-        fin_asset_pct = (fin_asset / total_net * 100) if total_net > 0 else 0
-        spare_cash_pct = (spare_cash / income * 100) if income > 0 else 0
-
-        metrics2 = {
-            "총순자산": format_krw(total_net), "총순자산_원": f"{total_net//100000000}억 {(total_net%100000000)//10000}만 원" if total_net >= 100000000 else format_krw(total_net),
-            "부동산": format_krw(real_estate), "부동산비중": f"비중: {real_estate_pct:.1f}%",
-            "금융": format_krw(fin_asset), "금융비중": f"비중: {fin_asset_pct:.1f}%",
-            "여유금": format_krw(spare_cash), "여유금비중": f"실수령액 대비 {spare_cash_pct:.1f}%"
-        }
-
-        fixed_row = df.isin(['월평균 고정지출']).any(axis=1).idxmax()
-        r = fixed_row + 1
-        df_fixed = pd.DataFrame({
-            "항목": ["학원비 (교육)", "공과금 (관리비/통신)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
-            "금액": [format_krw(pd.to_numeric(df.iloc[r, 5], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 8], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 11], errors='coerce')), format_krw(pd.to_numeric(df.iloc[r, 14], errors='coerce'))]
-        })
-        
-        inc_sum, exp_sum, sav_sum, bal_sum = 0, 0, 0, 0
-        for row in range(len(df)):
-            for col in range(len(df.columns) - 1):
-                cell_val = str(df.iloc[row, col]).strip()
-                if '수입 합계' in cell_val:
-                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
-                    if pd.notna(v): inc_sum = v
-                elif '지출 합계' in cell_val:
-                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
-                    if pd.notna(v): exp_sum = v
-                elif '주택담보대출원금' in cell_val:
-                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
-                    if pd.notna(v): sav_sum = v
-                elif cell_val == '잔고':
-                    v = pd.to_numeric(df.iloc[row, col+1], errors='coerce')
-                    if pd.notna(v): bal_sum = v
-
-        if inc_sum == 0: inc_sum = income
-        
-        df_bar = pd.DataFrame({
-            "항목": ["1. 총 수입", "2. 총 지출 (고정+변동)", "3. 주담대 원금 저축", "4. 잔고 (잉여금)"],
-            "금액": [inc_sum, exp_sum, sav_sum, bal_sum]
-        })
-        
-        return metrics2, df_t_pie, df_f_pie, df_t_table, df_f_table, df_c_table, df_fixed, df_bar
-    except Exception as e:
-        return get_default_asset_data()
-
-def process_global_upload(uploaded_file):
-    if uploaded_file is not None:
-        file_bytes = uploaded_file.getvalue()
-        file_hash = hashlib.md5(file_bytes).hexdigest()
-        
-        if st.session_state.get('last_uploaded_hash') != file_hash:
-            try:
-                uploaded_file.seek(0)
-                st.session_state.tab6_data = parse_portfolio_excel(uploaded_file)
-                uploaded_file.seek(0)
-                st.session_state.tab7_data = parse_asset_flow_excel(uploaded_file)
-                st.session_state.last_uploaded_hash = file_hash
-                st.toast("새로운 엑셀 데이터로 대시보드 완벽 동기화 완료!", icon="✅")
-                st.rerun() 
-            except Exception as e:
-                st.error(f"엑셀 파일 처리 중 오류가 발생했습니다. (오류: {e})")
-
 # ---------------------------------------------------------
 # UI 공통 헤더
 # ---------------------------------------------------------
 kr10_val = latest_data.get('한국10년물', None)
 kr30_val = latest_data.get('한국30년물', None)
+vix_val = latest_data.get('VIX', None)
 
 kr10_str = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f} %"
 kr30_str = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f} %"
 kr10_chg = "" if pd.isna(kr10_val) or kr10_val == 0 else changes.get('한국10년물', '')
 kr30_chg = "" if pd.isna(kr30_val) or kr30_val == 0 else changes.get('한국30년물', '')
+
+vix_str = "데이터 없음" if pd.isna(vix_val) or vix_val == 0 else f"{vix_val:,.2f}"
+vix_chg = "" if pd.isna(vix_val) or vix_val == 0 else changes.get('VIX', '')
 
 kr10_info = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f}% ({changes.get('한국10년물', '')})"
 kr30_info = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f}% ({changes.get('한국30년물', '')})"
@@ -869,7 +869,7 @@ with tab1:
     cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
     cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
     cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
-    cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", f"{latest_data.get('VIX', 0):,.2f}", changes.get('VIX', '0.00'))
+    cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", vix_str, vix_chg)
 
     cols2 = st.columns(4)
     cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
@@ -1041,27 +1041,24 @@ with tab5:
         for news in news_data["US"]:
             st.markdown(f"🔹 <a class='news-link' href='{news['link']}' target='_blank'>{news['title']}</a>", unsafe_allow_html=True)
 
-t6_metrics, df_region, df_base, df_asset, df_holdings, account_summaries = st.session_state.tab6_data
-t7_metrics, df_t_pie, df_f_pie, df_t_table, df_f_table, df_c_table, df_fixed, df_bar = st.session_state.tab7_data
-
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
     pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (보유종목 탭)", type="password", key="pwd_tab6")
     
     if pwd == "1016":
-        st.success("인증 완료! 엑셀 기반 계좌 통계 데이터를 성공적으로 불러왔습니다.")
+        st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
         
-        up_6 = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'], key="upload_6")
+        up_6 = st.file_uploader("다른 포트폴리오 엑셀 파일을 수동으로 테스트하려면 업로드하세요 (선택)", type=['xlsx', 'xls'], key="upload_6")
         process_global_upload(up_6)
             
         st.divider()
         
         st.markdown("##### 💰 총 자산 현황 요약")
         p_cols = st.columns(4)
-        p_cols[0].metric("총 자산 (Total Assets)", t6_metrics["총자산"], t6_metrics["평가손익"])
-        p_cols[1].metric("총 매수금액 (Total Invested)", t6_metrics["총매수금액"], "")
-        p_cols[2].metric("실현 손익 (Realized Profit)", t6_metrics["실현손익"], "")
-        p_cols[3].metric("계좌 내 현금 비중 (Cash Weight)", t6_metrics["현금비중"], t6_metrics["현금액"], delta_color="off")
+        p_cols[0].metric("총 자산 (Total Assets)", t6_metrics.get("총자산", "₩ 0"), t6_metrics.get("평가손익", ""))
+        p_cols[1].metric("총 매수금액 (Total Invested)", t6_metrics.get("총매수금액", "₩ 0"), "")
+        p_cols[2].metric("실현 손익 (Realized Profit)", t6_metrics.get("실현손익", "₩ 0"), "")
+        p_cols[3].metric("계좌 내 현금 비중 (Cash Weight)", t6_metrics.get("현금비중", "0.0%"), t6_metrics.get("현금액", "₩ 0"), delta_color="off")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1081,54 +1078,58 @@ with tab6:
 
         st.markdown("##### 📈 보유종목 통합 YTD 상대수익률 비교 (시작=100)")
         df_port_hist, df_port_raw = get_portfolio_history()
-        active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
         
-        if active_holdings:
-            cols_to_plot = ['일자'] + active_holdings
-            chart_data_port = df_port_hist[cols_to_plot].melt(id_vars=['일자'], var_name='종목', value_name='상대수익률')
+        if not df_holdings.empty and not df_port_hist.empty:
+            active_holdings = [name for name in df_holdings['종목명'].unique() if name in df_port_hist.columns]
             
-            port_line_chart = alt.Chart(chart_data_port).mark_line(opacity=0.8, strokeWidth=2).encode(
-                x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
-                y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
-                color=alt.Color('종목:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=4)),
-                tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
-            ).properties(height=420)
-            
-            st.altair_chart(port_line_chart, use_container_width=True)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("##### 🔍 개별 종목별 실제 가격 추이 및 매수단가 라인")
-            
-            for i in range(0, len(active_holdings), 4):
-                cols = st.columns(4)
-                chunk = active_holdings[i:i+4]
-                for j, holding_name in enumerate(chunk):
-                    with cols[j]:
-                        latest_val_ytd = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
-                        ytd_ret = latest_val_ytd - 100
-                        
-                        holding_row = df_holdings[df_holdings['종목명'] == holding_name].iloc[0]
-                        b_price = holding_row.get('매수단가_num', 0)
-                        c_price = holding_row.get('현재가_num', 0)
-                        
-                        df_plot = df_port_raw[['일자', holding_name]].copy()
-                        
-                        latest_val_raw = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
-                        if latest_val_raw > 0 and c_price > 0:
-                            ratio = c_price / latest_val_raw
-                            if ratio > 500:
-                                df_plot[holding_name] = df_plot[holding_name] * ratio
-                        
-                        current_display_val = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
-                        y_format = ',.0f' if current_display_val > 1000 else ',.2f'
-                        
-                        ytd_html = f"<code>(YTD {ytd_ret:+.1f}%)</code>"
-                        render_title(holding_name, "", ytd_html)
-                        draw_holding_mini_chart_raw(df_plot, holding_name, buy_line_y=b_price if b_price > 0 else None, y_format=y_format)
-            
-            st.caption("※ 실선: 실제 가격 흐름 (분배금이 반영된 '수정주가' 기준) | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 엑셀 기준 나의 평균 매수단가")
+            if active_holdings:
+                cols_to_plot = ['일자'] + active_holdings
+                chart_data_port = df_port_hist[cols_to_plot].melt(id_vars=['일자'], var_name='종목', value_name='상대수익률')
+                
+                port_line_chart = alt.Chart(chart_data_port).mark_line(opacity=0.8, strokeWidth=2).encode(
+                    x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
+                    y=alt.Y('상대수익률:Q', scale=alt.Scale(zero=False), axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4])),
+                    color=alt.Color('종목:N', scale=alt.Scale(scheme='tableau20'), legend=alt.Legend(title=None, orient="bottom", columns=4)),
+                    tooltip=[alt.Tooltip('일자:T', format='%Y-%m-%d'), '종목', alt.Tooltip('상대수익률:Q', format='.2f')]
+                ).properties(height=420)
+                
+                st.altair_chart(port_line_chart, use_container_width=True)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("##### 🔍 개별 종목별 실제 가격 추이 및 매수단가 라인")
+                
+                for i in range(0, len(active_holdings), 4):
+                    cols = st.columns(4)
+                    chunk = active_holdings[i:i+4]
+                    for j, holding_name in enumerate(chunk):
+                        with cols[j]:
+                            latest_val_ytd = df_port_hist[holding_name].dropna().iloc[-1] if not df_port_hist[holding_name].dropna().empty else 100
+                            ytd_ret = latest_val_ytd - 100
+                            
+                            holding_row = df_holdings[df_holdings['종목명'] == holding_name].iloc[0]
+                            b_price = holding_row.get('매수단가_num', 0)
+                            c_price = holding_row.get('현재가_num', 0)
+                            
+                            df_plot = df_port_raw[['일자', holding_name]].copy()
+                            
+                            latest_val_raw = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
+                            if latest_val_raw > 0 and c_price > 0:
+                                ratio = c_price / latest_val_raw
+                                if ratio > 500:
+                                    df_plot[holding_name] = df_plot[holding_name] * ratio
+                            
+                            current_display_val = df_plot[holding_name].dropna().iloc[-1] if not df_plot[holding_name].dropna().empty else 0
+                            y_format = ',.0f' if current_display_val > 1000 else ',.2f'
+                            
+                            ytd_html = f"<code>(YTD {ytd_ret:+.1f}%)</code>"
+                            render_title(holding_name, "", ytd_html)
+                            draw_holding_mini_chart_raw(df_plot, holding_name, buy_line_y=b_price if b_price > 0 else None, y_format=y_format)
+                
+                st.caption("※ 실선: 실제 가격 흐름 (분배금이 반영된 '수정주가' 기준) | ⚪ 옅은 실선: 연초(100) 기준선 | 🔴 붉은 점선: 엑셀 기준 나의 평균 매수단가")
+            else:
+                st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
         else:
-            st.warning("차트를 그릴 수 있는 엑셀 보유종목 가격 데이터가 없습니다.")
+            st.warning("데이터가 아직 로드되지 않았습니다.")
 
         st.divider()
 
@@ -1143,16 +1144,17 @@ with tab6:
             "계좌내 비중(%)": st.column_config.TextColumn("계좌내 비중(%)", width=120, alignment="right")
         }
 
-        for acc in df_holdings["계좌 구분"].unique():
-            acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
-            summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
-            
-            st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
-            
-            dynamic_height = len(acc_data) * 36 + 43
-            st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config, height=dynamic_height)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
+        if not df_holdings.empty:
+            for acc in df_holdings["계좌 구분"].unique():
+                acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
+                summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
+                
+                st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
+                
+                dynamic_height = len(acc_data) * 36 + 43
+                st.dataframe(acc_data, use_container_width=True, hide_index=True, column_config=col_config, height=dynamic_height)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
         
     elif pwd != "":
         st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
@@ -1164,19 +1166,19 @@ with tab7:
     pwd2 = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (자산현황 탭)", type="password", key="pwd_tab7")
     
     if pwd2 == "1016":
-        st.success("인증 완료! 엑셀 기반 자산 현황 및 현금흐름 데이터를 성공적으로 불러왔습니다.")
+        st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
         
-        up_7 = st.file_uploader("업데이트된 포트폴리오 엑셀 파일을 업로드하세요 (선택 사항)", type=['xlsx', 'xls'], key="upload_7")
+        up_7 = st.file_uploader("다른 포트폴리오 엑셀 파일을 수동으로 테스트하려면 업로드하세요 (선택)", type=['xlsx', 'xls'], key="upload_7")
         process_global_upload(up_7)
         
         st.divider()
 
         st.markdown("##### 💎 총 자산 및 여유 현금 요약")
         m_cols = st.columns(4)
-        m_cols[0].metric("총 순자산 (Total Net Asset)", t7_metrics["총순자산"], t7_metrics["총순자산_원"], delta_color="off")
-        m_cols[1].metric("부동산 순자산 (Real Estate)", t7_metrics["부동산"], t7_metrics["부동산비중"], delta_color="off")
-        m_cols[2].metric("금융 순자산 (Financial Asset)", t7_metrics["금융"], t7_metrics["금융비중"], delta_color="off")
-        m_cols[3].metric("월 여유금 (Monthly Spare Cash)", t7_metrics["여유금"], t7_metrics["여유금비중"], delta_color="normal")
+        m_cols[0].metric("총 순자산 (Total Net Asset)", t7_metrics.get("총순자산", "₩ 0"), t7_metrics.get("총순자산_원", ""), delta_color="off")
+        m_cols[1].metric("부동산 순자산 (Real Estate)", t7_metrics.get("부동산", "₩ 0"), t7_metrics.get("부동산비중", ""), delta_color="off")
+        m_cols[2].metric("금융 순자산 (Financial Asset)", t7_metrics.get("금융", "₩ 0"), t7_metrics.get("금융비중", ""), delta_color="off")
+        m_cols[3].metric("월 여유금 (Monthly Spare Cash)", t7_metrics.get("여유금", "₩ 0"), t7_metrics.get("여유금비중", ""), delta_color="normal")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1190,30 +1192,36 @@ with tab7:
         with col1:
             st.markdown("#### 1. 자산 현황 (Asset Status)")
             st.markdown("##### 📊 총자산 구성 비중")
-            draw_pie_chart(df_t_pie, 'category10')
-            st.dataframe(df_t_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_t_table)*36 + 43)
+            if not df_t_pie.empty:
+                draw_pie_chart(df_t_pie, 'category10')
+            if not df_t_table.empty:
+                st.dataframe(df_t_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_t_table)*36 + 43)
             
             st.markdown("##### 📊 금융자산 구성 비중")
-            draw_pie_chart(df_f_pie, 'set2')
-            st.dataframe(df_f_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_f_table)*36 + 43)
+            if not df_f_pie.empty:
+                draw_pie_chart(df_f_pie, 'set2')
+            if not df_f_table.empty:
+                st.dataframe(df_f_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_f_table)*36 + 43)
 
         with col2:
             st.markdown("#### 2. 월간 현금흐름 (Cash Flow)")
             st.markdown("##### 📈 수입 vs 지출 요약")
-            
-            bar_chart = alt.Chart(df_bar).mark_bar(size=40).encode(
-                x=alt.X('항목:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('금액:Q', title=None, axis=alt.Axis(format='~s', gridOpacity=0.1)),
-                color=alt.Color('항목:N', legend=None, scale=alt.Scale(scheme='tableau10')),
-                tooltip=[alt.Tooltip('항목:N'), alt.Tooltip('금액:Q', format=',.0f')]
-            ).properties(height=280)
-            st.altair_chart(bar_chart, use_container_width=True)
+            if not df_bar.empty:
+                bar_chart = alt.Chart(df_bar).mark_bar(size=40).encode(
+                    x=alt.X('항목:N', title=None, sort=None, axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y('금액:Q', title=None, axis=alt.Axis(format='~s', gridOpacity=0.1)),
+                    color=alt.Color('항목:N', legend=None, scale=alt.Scale(scheme='tableau10')),
+                    tooltip=[alt.Tooltip('항목:N'), alt.Tooltip('금액:Q', format=',.0f')]
+                ).properties(height=280)
+                st.altair_chart(bar_chart, use_container_width=True)
             
             st.markdown("##### 🧾 월 현금흐름 상세 내역")
-            st.dataframe(df_c_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_c_table)*36 + 43)
+            if not df_c_table.empty:
+                st.dataframe(df_c_table, use_container_width=True, hide_index=True, column_config=col_config_asset, height=len(df_c_table)*36 + 43)
             
             st.markdown("##### 🏦 월평균 고정지출 그룹 (가족 보험/교육비 등)")
-            st.dataframe(df_fixed, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")}, height=len(df_fixed)*36 + 43)
+            if not df_fixed.empty:
+                st.dataframe(df_fixed, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")}, height=len(df_fixed)*36 + 43)
 
     elif pwd2 != "":
         st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
