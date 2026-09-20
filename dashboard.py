@@ -94,7 +94,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.43 원클릭 Update 개선본)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.46 파이차트 여백 최적화본)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -791,12 +791,23 @@ def draw_pie_chart(df, color_scheme):
         st.markdown("*데이터 없음*")
         return
         
-    df['비중'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1).astype(str) + '%'
-    chart = alt.Chart(df).mark_arc(innerRadius=40, stroke="#fff", strokeWidth=1).encode(
-        theta=alt.Theta(field="현재금액", type="quantitative"),
+    df['비중_num'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1)
+    df['비중'] = df['비중_num'].astype(str) + '%'
+    
+    base = alt.Chart(df).encode(
+        theta=alt.Theta(field="현재금액", type="quantitative", stack=True),
         color=alt.Color(field="분류", type="nominal", legend=alt.Legend(title=None, orient="bottom", columns=3), scale=alt.Scale(scheme=color_scheme)),
         tooltip=['분류', alt.Tooltip('현재금액:Q', format=',.0f'), '비중']
-    ).properties(height=280)
+    )
+    
+    # 🌟 반지름 크기를 100으로 줄이고, 도화지 높이를 320으로 늘려 잘림 현상 완벽 방지
+    arc = base.mark_arc(innerRadius=40, outerRadius=100, stroke="#fff", strokeWidth=1)
+    
+    text = base.mark_text(radius=70, size=13, fontWeight='bold', fill='white').encode(
+        text=alt.condition(alt.datum['비중_num'] >= 4.0, '비중:N', alt.value(''))
+    )
+    
+    chart = alt.layer(arc, text).properties(height=320)
     st.altair_chart(chart, width="stretch")
 
 # ---------------------------------------------------------
@@ -1083,27 +1094,26 @@ with tab5:
 
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
-    pwd = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (보유종목 탭)", type="password", key="pwd_tab6")
+    pwd = st.text_input("보유종목 탭 암호", type="password", key="pwd_tab6", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
     
     if pwd == "1016":
-        st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
-        
-        st.markdown("##### 🔄 자산 데이터 동기화")
-        col_btn_6, _ = st.columns([1, 3])
-        with col_btn_6:
-            if st.button("🔄 '자산투자관리.xlsx' 업데이트 (Update)", key="btn_update_6", type="primary"):
+        sync_col1, sync_col2 = st.columns(2)
+        with sync_col1:
+            st.success("✅ 인증 완료! '자산투자관리.xlsx' 연동됨")
+            if st.button("🔄 즉시 업데이트 (Update)", key="btn_update_6", type="primary", use_container_width=True):
                 load_local_excel_data.clear()
                 st.session_state.local_mod_time = get_file_mod_time()
                 st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(st.session_state.local_mod_time)
                 st.session_state.last_uploaded_hash = None
                 st.toast("최신 엑셀 데이터로 갱신되었습니다!", icon="✅")
                 st.rerun()
-
-        with st.expander("☁️ 외부 클라우드 접속 시 수동 업로드 (펼치기)"):
-            st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없으므로, 클라우드에서는 직접 파일을 업로드해 주세요.")
-            up_6 = st.file_uploader("", type=['xlsx', 'xls'], key="upload_6")
-            process_global_upload(up_6)
-            
+                
+        with sync_col2:
+            with st.expander("☁️ 클라우드 접속 시 수동 파일 업로드"):
+                st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없습니다.")
+                up_6 = st.file_uploader("파일 업로드", type=['xlsx', 'xls'], key="upload_6", label_visibility="collapsed")
+                process_global_upload(up_6)
+                
         st.divider()
         
         st.markdown("##### 💰 총 자산 현황 요약")
@@ -1240,15 +1250,13 @@ with tab6:
 
 with tab7:
     st.subheader("💼 종합 자산 및 현금흐름 (Private)")
-    pwd2 = st.text_input("이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요. (자산현황 탭)", type="password", key="pwd_tab7")
+    pwd2 = st.text_input("자산현황 탭 암호", type="password", key="pwd_tab7", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
     
     if pwd2 == "1016":
-        st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
-        
-        st.markdown("##### 🔄 자산 데이터 동기화")
-        col_btn_7, _ = st.columns([1, 3])
-        with col_btn_7:
-            if st.button("🔄 '자산투자관리.xlsx' 업데이트 (Update)", key="btn_update_7", type="primary"):
+        sync_col1, sync_col2 = st.columns(2)
+        with sync_col1:
+            st.success("✅ 인증 완료! '자산투자관리.xlsx' 연동됨")
+            if st.button("🔄 즉시 업데이트 (Update)", key="btn_update_7", type="primary", use_container_width=True):
                 load_local_excel_data.clear()
                 st.session_state.local_mod_time = get_file_mod_time()
                 st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(st.session_state.local_mod_time)
@@ -1256,10 +1264,11 @@ with tab7:
                 st.toast("최신 엑셀 데이터로 갱신되었습니다!", icon="✅")
                 st.rerun()
 
-        with st.expander("☁️ 외부 클라우드 접속 시 수동 업로드 (펼치기)"):
-            st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없으므로, 클라우드에서는 직접 파일을 업로드해 주세요.")
-            up_7 = st.file_uploader("", type=['xlsx', 'xls'], key="upload_7")
-            process_global_upload(up_7)
+        with sync_col2:
+            with st.expander("☁️ 클라우드 접속 시 수동 파일 업로드"):
+                st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없습니다.")
+                up_7 = st.file_uploader("파일 업로드", type=['xlsx', 'xls'], key="upload_7", label_visibility="collapsed")
+                process_global_upload(up_7)
         
         st.divider()
 
