@@ -32,7 +32,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""<div style="margin-top:-15px; margin-bottom:10px;"><h2 style="margin-bottom:0px; padding-bottom:5px; font-size:1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.48 다이어트 최적화)</h2></div>""", unsafe_allow_html=True)
+st.markdown("""<div style="margin-top:-15px; margin-bottom:10px;"><h2 style="margin-bottom:0px; padding-bottom:5px; font-size:1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.49 최적화 오류 수정본)</h2></div>""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 🌟 [스마트 캘린더] 일정 데이터
@@ -354,9 +354,12 @@ def get_news_data():
 news_data = get_news_data()
 
 # ---------------------------------------------------------
-# 🌟 [차트 & UI 헬퍼 모듈] (중복 코드 150줄 압축)
+# 🌟 [차트 & UI 헬퍼 모듈] (중복 코드 150줄 압축 + 에러 완벽 수정)
 # ---------------------------------------------------------
 def get_ytd(df, c):
+    # 🌟 버그 수정: 클라우드 환경에서 df가 비어있거나 컬럼(c)이 없을 때 발생하는 KeyError 완벽 차단
+    if df is None or df.empty or c not in df.columns: 
+        return ""
     s = df[c].dropna()
     return f"<code>(YTD {(s.iloc[-1]/s.iloc[0]-1)*100:+.1f}%)</code>" if len(s)>0 and s.iloc[0]!=0 else ""
 
