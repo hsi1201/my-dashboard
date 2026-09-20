@@ -80,8 +80,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.23 우직한 안정화)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">타임아웃 연장 및 ECOS 3중 프록시(우회) 완벽 최적화</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.27)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -177,45 +176,44 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    # 🌟 [초강력 ECOS 엔진] 무의미한 KOSIS 삭제, ECOS를 넉넉한 타임아웃(10초)으로 확실하게 긁어옴
-    def fetch_ecos_robust(item_code, col_name):
+    # 🌟 [로컬/클라우드 하이브리드 엔진] ECOS 다이렉트 통신 후 실패 시 프록시 우회
+    def fetch_ecos_hybrid(item_code, col_name):
         bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
         today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
         url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/500/817Y002/D/20260101/{today_str}/{item_code}"
         
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         
         def parse_ecos(r):
             df = pd.DataFrame(r['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME':'일자', 'DATA_VALUE':col_name})
             df['일자'] = pd.to_datetime(df['일자'])
             df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
             return df.set_index('일자')
-        
-        # 1. 다이렉트 (타임아웃 5초 - 로컬 구동 시 완벽)
+            
+        # 1차: 로컬(PC) 환경을 위한 다이렉트 호출 (매우 빠름)
         try:
-            r = requests.get(url, headers=headers, timeout=5, verify=False).json()
+            r = requests.get(url, headers=headers, timeout=2.5, verify=False).json()
             if 'StatisticSearch' in r:
                 return parse_ecos(r)
         except: pass
         
-        # 2. 클라우드 IP 세탁용 3중 우회 프록시 (타임아웃 10초 넉넉하게 부여)
+        # 2차: 클라우드 차단 우회용 프록시 (다이렉트 실패 시 작동, 무한대기 방지 타임아웃 적용)
         proxies = [
             f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
-            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}",
-            f"https://corsproxy.io/?{urllib.parse.quote(url)}"
+            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
         ]
         
         for p in proxies:
             try:
-                r = requests.get(p, headers=headers, timeout=10, verify=False).json()
+                r = requests.get(p, headers=headers, timeout=3.5, verify=False).json()
                 if 'StatisticSearch' in r:
                     return parse_ecos(r)
             except: pass
             
-        return pd.DataFrame() # 15~20초를 기다려도 안되면 미련 없이 버림
+        return pd.DataFrame()
 
-    df_10y = fetch_ecos_robust('010210000', '한국10년물')
-    df_30y = fetch_ecos_robust('010230000', '한국30년물')
+    df_10y = fetch_ecos_hybrid('010210000', '한국10년물')
+    df_30y = fetch_ecos_hybrid('010230000', '한국30년물')
         
     dfs_kr = []
     if not df_10y.empty: dfs_kr.append(df_10y)
@@ -287,7 +285,7 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 K-테마주 수집 (무한로딩 방지를 위해 investing.com 국채 차단 로직은 원천 삭제)
+    # 🌟 K-테마주 수집
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      
@@ -768,7 +766,14 @@ def process_global_upload(uploaded_file):
 # ---------------------------------------------------------
 # UI 공통 헤더
 # ---------------------------------------------------------
+kr10_val = latest_data.get('한국10년물', None)
+kr30_val = latest_data.get('한국30년물', None)
+
+kr10_info = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f}% ({changes.get('한국10년물', '')})"
+kr30_info = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f}% ({changes.get('한국30년물', '')})"
+
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
+    st.info(f"🔔 **[현재 국고채 금리 상황]** 🇰🇷 10년물: **{kr10_info}** &nbsp; | &nbsp; 🇰🇷 30년물: **{kr30_info}**")
     st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
     st.markdown("""
     **📌 데이터 소스 및 타 사이트(Investing.com 등) 수치 차이 안내**
