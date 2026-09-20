@@ -94,7 +94,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.42 클라우드 에러 방어본)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.43 원클릭 Update 개선본)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -171,7 +171,6 @@ def parse_portfolio_excel(file):
             ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
             realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
             
-            # 🌟 현금 인식 범위 확대: 예수금, 세이프박스 외에 '예금', '외화', 'CMA', '현금' 등이 포함된 종목도 현금으로 합산
             cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and any(k in r['종목명'] for k in ['예수금', '세이프박스', '예금', '외화', 'CMA', '현금'])])
             cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
             
@@ -712,7 +711,6 @@ def get_market_regime(latest_data):
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 def draw_mini_chart(df, column_name):
-    # 🌟 클라우드 Empty DataFrame 방어 로직
     if df is None or df.empty or column_name not in df.columns:
         st.markdown(f"*{column_name} 데이터 없음*")
         return
@@ -743,7 +741,6 @@ def draw_mini_chart(df, column_name):
     st.altair_chart(chart, width="stretch")
 
 def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f'):
-    # 🌟 클라우드 Empty DataFrame 방어 로직
     if df is None or df.empty or column_name not in df.columns:
         st.markdown(f"*{column_name} 데이터 없음*")
         return
@@ -784,7 +781,6 @@ def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f
     st.altair_chart(chart, width="stretch")
 
 def draw_pie_chart(df, color_scheme):
-    # 🌟 클라우드 Empty DataFrame 방어 로직 (KeyError 핵심 해결)
     if df is None or df.empty or '현재금액' not in df.columns:
         st.markdown("*데이터 없음*")
         return
@@ -1092,8 +1088,21 @@ with tab6:
     if pwd == "1016":
         st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
         
-        up_6 = st.file_uploader("다른 포트폴리오 엑셀 파일을 수동으로 테스트하려면 업로드하세요 (선택)", type=['xlsx', 'xls'], key="upload_6")
-        process_global_upload(up_6)
+        st.markdown("##### 🔄 자산 데이터 동기화")
+        col_btn_6, _ = st.columns([1, 3])
+        with col_btn_6:
+            if st.button("🔄 '자산투자관리.xlsx' 업데이트 (Update)", key="btn_update_6", type="primary"):
+                load_local_excel_data.clear()
+                st.session_state.local_mod_time = get_file_mod_time()
+                st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(st.session_state.local_mod_time)
+                st.session_state.last_uploaded_hash = None
+                st.toast("최신 엑셀 데이터로 갱신되었습니다!", icon="✅")
+                st.rerun()
+
+        with st.expander("☁️ 외부 클라우드 접속 시 수동 업로드 (펼치기)"):
+            st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없으므로, 클라우드에서는 직접 파일을 업로드해 주세요.")
+            up_6 = st.file_uploader("", type=['xlsx', 'xls'], key="upload_6")
+            process_global_upload(up_6)
             
         st.divider()
         
@@ -1236,8 +1245,21 @@ with tab7:
     if pwd2 == "1016":
         st.success("인증 완료! '자산투자관리.xlsx' 데이터를 성공적으로 동기화했습니다.")
         
-        up_7 = st.file_uploader("다른 포트폴리오 엑셀 파일을 수동으로 테스트하려면 업로드하세요 (선택)", type=['xlsx', 'xls'], key="upload_7")
-        process_global_upload(up_7)
+        st.markdown("##### 🔄 자산 데이터 동기화")
+        col_btn_7, _ = st.columns([1, 3])
+        with col_btn_7:
+            if st.button("🔄 '자산투자관리.xlsx' 업데이트 (Update)", key="btn_update_7", type="primary"):
+                load_local_excel_data.clear()
+                st.session_state.local_mod_time = get_file_mod_time()
+                st.session_state.tab6_data, st.session_state.tab7_data = load_local_excel_data(st.session_state.local_mod_time)
+                st.session_state.last_uploaded_hash = None
+                st.toast("최신 엑셀 데이터로 갱신되었습니다!", icon="✅")
+                st.rerun()
+
+        with st.expander("☁️ 외부 클라우드 접속 시 수동 업로드 (펼치기)"):
+            st.caption("※ 보안상 브라우저는 로컬 파일을 자동으로 읽을 수 없으므로, 클라우드에서는 직접 파일을 업로드해 주세요.")
+            up_7 = st.file_uploader("", type=['xlsx', 'xls'], key="upload_7")
+            process_global_upload(up_7)
         
         st.divider()
 
