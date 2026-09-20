@@ -94,7 +94,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.41 현금 인식 확장본)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.42 클라우드 에러 방어본)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -171,7 +171,7 @@ def parse_portfolio_excel(file):
             ret_val = pd.to_numeric(row.get('수익률', 0), errors='coerce')
             realized = pd.to_numeric(row.get('실현손익', 0), errors='coerce')
             
-            # 🌟 현금 인식 범위 확대: 예수금, 세이프박스 외에 '예금', '외화', 'CMA' 등이 포함된 종목도 현금으로 합산
+            # 🌟 현금 인식 범위 확대: 예수금, 세이프박스 외에 '예금', '외화', 'CMA', '현금' 등이 포함된 종목도 현금으로 합산
             cash_amt = sum([r['현재가치_num'] for r in rows_list if r['계좌 구분'] == current_account and any(k in r['종목명'] for k in ['예수금', '세이프박스', '예금', '외화', 'CMA', '현금'])])
             cash_weight = (cash_amt / tot_val) if tot_val > 0 else 0
             
@@ -329,82 +329,10 @@ def parse_asset_flow_excel(file):
 
 
 def get_default_portfolio_data():
-    metrics = {
-        "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
-        "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
-    }
-    df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
-    df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
-    df_asset = pd.DataFrame({"분류": ["주식", "채권", "혼합", "가상자산", "현금"], "현재금액": [54367821, 7430900, 8787000, 0, 27929877]})
-    df_holdings = pd.DataFrame({
-        "계좌 구분": ["IRP - 장기"]*11 + ["ISA - 중기"]*2 + ["국내주식 - 단기"]*5 + ["해외주식 - 단기"]*3 + ["비상금"],
-        "종목명": ["KODEX 200", "TIGER 미국나스닥100", "KODEX 코스닥150", "TIGER 일본니케이225", "KODEX 차이나CSI300", "TIGER 미국S&P500", "ACE 미국S&P500미국채혼합50액티브", "ACE 미국나스닥100미국채혼합50액티브", "KODEX 국고채30년액티브", "ACE 미국30년국채액티브(H)", "IRP예수금", "TIGER 미국배당다우존스", "ISA예수금", "한온시스템", "TIGER 바이오TOP10", "PLUS K방산", "SOL AI반도체소부장", "국내주식예수금", "로봇공학 및 인공지능 글로벌엑스(BOTZ)", "나스닥 스마트 그리드 인프라(GRID)", "해외주식예수금", "카카오뱅크(세이프박스)"],
-        "보유수량": ["73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1", "520", "1", "250", "300", "20", "100", "1", "65", "14", "1", "1"],
-        "매수단가_num": [63969, 188498, 14132, 38781, 15877, 24866, 14671, 15866, 107595, 7655, 12147405, 15401, 2018773, 4187, 7623, 66065, 24595, 2878878, 51657, 253298, 2874694, 8000000],
-        "현재가_num": [109285, 181225, 13830, 34505, 15060, 26280, 14060, 15230, 87460, 7150, 12147405, 14815, 2018773, 3445, 6680, 53045, 25120, 2878878, 48718, 249064, 2874694, 8010127],
-        "매수단가": ["₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877", "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405", "₩ 15,401", "₩ 2,018,773", "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878", "₩ 51,657", "₩ 253,298", "₩ 2,874,694", "₩ 8,000,000"],
-        "현재가": ["₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060", "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405", "₩ 14,815", "₩ 2,018,773", "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878", "₩ 48,718", "₩ 249,064", "₩ 2,874,694", "₩ 8,010,127"],
-        "현재가치": ["₩ 7,977,805", "₩ 7,611,450", "₩ 3,872,400", "₩ 3,105,450", "₩ 1,807,200", "₩ 9,198,000", "₩ 4,218,000", "₩ 4,569,000", "₩ 3,498,400", "₩ 3,932,500", "₩ 12,147,405", "₩ 7,703,800", "₩ 2,018,773", "₩ 861,250", "₩ 2,004,000", "₩ 1,060,900", "₩ 2,512,000", "₩ 2,878,878", "₩ 3,166,670", "₩ 3,486,896", "₩ 2,874,694", "₩ 8,010,127"],
-        "평가손익": ["+₩ 3,308,068", "-₩ 305,466", "-₩ 84,560", "-₩ 384,840", "-₩ 98,040", "+₩ 494,900", "-₩ 183,300", "-₩ 190,800", "-₩ 805,400", "-₩ 277,750", "₩ 0", "-₩ 304,720", "₩ 0", "-₩ 185,500", "-₩ 282,900", "-₩ 260,400", "+₩ 52,500", "₩ 0", "-₩ 194,675", "-₩ 87,402", "₩ 0", "+₩ 10,796"],
-        "수익률(%)": ["70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%", "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%", "-3.8%", "0.0%", "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%", "-5.7%", "-1.7%", "0.0%", "0.1%"],
-        "계좌내 비중(%)": ["12.9%", "12.3%", "6.3%", "5.0%", "2.9%", "14.9%", "6.8%", "7.4%", "5.6%", "6.3%", "19.6%", "79.2%", "20.8%", "9.2%", "21.5%", "11.4%", "27.0%", "30.9%", "33.2%", "36.6%", "30.2%", "100.0%"]
-    })
-    account_summaries = {
-        "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
-        "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%", "realized": "₩ 0"},
-        "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue", "cash_amt": "₩ 2,878,878", "cash_weight": "30.9%", "realized": "+₩ 929,728"},
-        "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue", "cash_amt": "₩ 2,874,694", "cash_weight": "30.2%", "realized": "+₩ 1,236,133"},
-        "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
-    }
-    return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
+    return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
 
 def get_default_asset_data():
-    metrics2 = {
-        "총순자산": "₩ 1,176,884,541", "총순자산_원": "11억 7688만 원", "부동산": "₩ 1,050,717,757", "부동산비중": "비중: 89.3%",
-        "금융": "₩ 101,166,784", "금융비중": "비중: 8.6%", "여유금": "₩ 2,411,146", "여유금비중": "실수령액 대비 43.5%"
-    }
-    df_t_pie = pd.DataFrame([{"분류": "부동산(주택) 순자산", "현재금액": 1050717757}, {"분류": "자동차 순자산", "현재금액": 25000000}, {"분류": "금융 순자산", "현재금액": 101166784}])
-    df_f_pie = pd.DataFrame([{"분류": "연금/ISA", "현재금액": 72660183}, {"분류": "주식투자", "현재금액": 18845288}, {"분류": "현금/기타", "현재금액": 9661313}])
-    df_t_table = pd.DataFrame([
-        {"자산 항목": "부동산(주택) 시세", "금액": "₩ 1,300,000,000", "비고": "래미안장위퍼스트하이 25평, 호갱노노 기준"},
-        {"자산 항목": "주택담보대출", "금액": "-₩ 249,282,243", "비고": "국민은행 : 금리 4.21%"},
-        {"자산 항목": "부동산(주택) 순자산", "금액": "₩ 1,050,717,757", "비고": "시세 - 대출"},
-        {"자산 항목": "자동차 순자산", "금액": "₩ 25,000,000", "비고": "캠리 하이브리드 2019년식, 시세 - 감가상각"},
-        {"자산 항목": "금융 순자산", "금액": "₩ 101,166,784", "비고": "IRP + ISA + 국내계좌 + 해외계좌 + 비상금"},
-        {"자산 항목": "총 순자산", "금액": "₩ 1,176,884,541", "비고": "아파트 + 자동차 + 금융자산"}
-    ])
-    df_f_table = pd.DataFrame([
-        {"항목": "개인형퇴직연금(IRP)", "금액": "₩ 61,937,610", "비고": "키움증권 - 지수 ETF"},
-        {"항목": "퇴직금(HRS)", "금액": "₩ 1,000,000", "비고": "적립(매월 대략 50만원)"},
-        {"항목": "개인종합자산관리(ISA)", "금액": "₩ 9,722,573", "비고": "키움증권 : 배당 ETF"},
-        {"항목": "국내주식", "금액": "₩ 9,317,028", "비고": "키움증권 : 국내 테마 ETF"},
-        {"항목": "해외주식", "금액": "₩ 9,528,260", "비고": "키움증권 : 해외 테마 ETF"},
-        {"항목": "가상화폐", "금액": "₩ 0", "비고": "빗썸 : 비트코인"},
-        {"항목": "현금(비상금)", "금액": "₩ 8,010,127", "비고": "카카오뱅크(세이프박스)"},
-        {"항목": "급여통장", "금액": "₩ 161,440", "비고": "신한은행 : 급여통장"},
-        {"항목": "외화예금", "금액": "₩ 1,022,036", "비고": "USD 372.83 + JPY 57,233 (신한 SOL트래블)"},
-        {"항목": "서울페이", "금액": "₩ 453,673", "비고": "성북사랑상품권"},
-        {"항목": "온누리상품권", "금액": "₩ 14,037", "비고": "온누리상품권"},
-        {"항목": "내지갑", "금액": "₩ 0", "비고": "내지갑"},
-        {"항목": "금융 순자산", "금액": "₩ 101,166,784", "비고": "IRP + ISA + 국내외주식 + 비상금"}
-    ])
-    df_c_table = pd.DataFrame([
-        {"분류": "월 실수령액", "금액": "₩ 5,538,828", "비고": "신한은행: 급여통장"},
-        {"분류": "주담대 월 원리금", "금액": "-₩ 1,408,414", "비고": "국민은행: 금리 4.21%"},
-        {"분류": "고정비", "금액": "-₩ 1,669,268", "비고": "매월 고정 지출"},
-        {"분류": "울산계모임", "금액": "-₩ 50,000", "비고": "매월 고정 지출"},
-        {"분류": "월 고정지출", "금액": "-₩ 3,127,682", "비고": "매월 고정 지출 합계"},
-        {"분류": "월 여유금", "금액": "₩ 2,411,146", "비고": "생활비 사용 가능 범위"}
-    ])
-    df_fixed = pd.DataFrame({
-        "항목": ["학원비 (교육)", "공과금 (관리비/통신)", "세금 (자동차/재산세)", "보험료 (가족 종합/실비)"],
-        "금액": ["₩ 852,845", "₩ 357,590", "₩ 131,739", "₩ 327,094"]
-    })
-    df_bar = pd.DataFrame({
-        "항목": ["1. 총 수입", "2. 총 지출 (고정+변동)", "3. 주담대 원금 저축", "4. 잔고 (잉여금)"],
-        "금액": [5538828, 3817400, 533853, 1721428]
-    })
-    return metrics2, df_t_pie, df_f_pie, df_t_table, df_f_table, df_c_table, df_fixed, df_bar
+    return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 # ---------------------------------------------------------
 # 🌟 [자동 로드 엔진 & 수동 업로드 상태 관리]
@@ -784,76 +712,89 @@ def get_market_regime(latest_data):
     else: return "⛅ 보통/눈치보기 장세 (Neutral)", "뚜렷한 쏠림 없이 시장이 방향성을 탐색하며 횡보하고 있습니다.", "info"
 
 def draw_mini_chart(df, column_name):
-    if column_name in df.columns:
-        chart_data = df[['일자', column_name]].dropna().copy()
-        if chart_data.empty:
-            st.markdown(f"*{column_name} 데이터 없음*")
-            return
-        min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
-        padding = (max_val - min_val) * 0.1
-        if padding == 0: padding = min_val * 0.1 if min_val != 0 else 1
-        y_min, y_max = min_val - padding, max_val + padding
-        y_axis_format = '.2f' if '년물' in column_name else '~s'
-        
-        chart_data['y_min_val'] = y_min
-        
-        base = alt.Chart(chart_data).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=5)),
-            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
-                    axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format=y_axis_format, tickCount=4, minExtent=35)),
-            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
-        )
-        area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
-        line = base.mark_line(interpolate='monotone', size=2)
-        
-        chart = alt.layer(area, line).properties(height=180)
-        st.altair_chart(chart, width="stretch")
-    else:
+    # 🌟 클라우드 Empty DataFrame 방어 로직
+    if df is None or df.empty or column_name not in df.columns:
         st.markdown(f"*{column_name} 데이터 없음*")
+        return
+        
+    chart_data = df[['일자', column_name]].dropna().copy()
+    if chart_data.empty:
+        st.markdown(f"*{column_name} 데이터 없음*")
+        return
+        
+    min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
+    padding = (max_val - min_val) * 0.1
+    if padding == 0: padding = min_val * 0.1 if min_val != 0 else 1
+    y_min, y_max = min_val - padding, max_val + padding
+    y_axis_format = '.2f' if '년물' in column_name else '~s'
+    
+    chart_data['y_min_val'] = y_min
+    
+    base = alt.Chart(chart_data).encode(
+        x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=5)),
+        y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
+                axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format=y_axis_format, tickCount=4, minExtent=35)),
+        tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='수치', format=',.2f')]
+    )
+    area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
+    line = base.mark_line(interpolate='monotone', size=2)
+    
+    chart = alt.layer(area, line).properties(height=180)
+    st.altair_chart(chart, width="stretch")
 
 def draw_holding_mini_chart_raw(df, column_name, buy_line_y=None, y_format=',.2f'):
-    if column_name in df.columns:
-        chart_data = df[['일자', column_name]].dropna().copy()
-        if chart_data.empty:
-            st.markdown(f"*{column_name} 데이터 없음*")
-            return
-        min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
-        
-        if buy_line_y is not None:
-            min_val = min(min_val, buy_line_y)
-            max_val = max(max_val, buy_line_y)
-            
-        padding = (max_val - min_val) * 0.1
-        if padding == 0: padding = 1
-        y_min, y_max = min_val - padding, max_val + padding
-        
-        chart_data['y_min_val'] = y_min
-        
-        base = alt.Chart(chart_data).encode(
-            x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=4)),
-            y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
-                    axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='~s', tickCount=4, minExtent=35)),
-            tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
-        )
-        area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
-        line = base.mark_line(interpolate='monotone', size=2)
-        
-        layers = [area, line]
-        
-        if buy_line_y is not None:
-            rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
-            layers.append(rule_buy)
-            
-        chart = alt.layer(*layers).properties(height=160)
-        st.altair_chart(chart, width="stretch")
-    else:
+    # 🌟 클라우드 Empty DataFrame 방어 로직
+    if df is None or df.empty or column_name not in df.columns:
         st.markdown(f"*{column_name} 데이터 없음*")
+        return
+        
+    chart_data = df[['일자', column_name]].dropna().copy()
+    if chart_data.empty:
+        st.markdown(f"*{column_name} 데이터 없음*")
+        return
+        
+    min_val, max_val = chart_data[column_name].min(), chart_data[column_name].max()
+    
+    if buy_line_y is not None:
+        min_val = min(min_val, buy_line_y)
+        max_val = max(max_val, buy_line_y)
+        
+    padding = (max_val - min_val) * 0.1
+    if padding == 0: padding = 1
+    y_min, y_max = min_val - padding, max_val + padding
+    
+    chart_data['y_min_val'] = y_min
+    
+    base = alt.Chart(chart_data).encode(
+        x=alt.X('일자:T', title=None, axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='%m/%d', labelColor='gray', tickCount=4)),
+        y=alt.Y(f'{column_name}:Q', title=None, scale=alt.Scale(domain=[y_min, y_max], zero=False), 
+                axis=alt.Axis(grid=True, gridColor='#666666', gridOpacity=0.5, gridDash=[4,4], format='~s', tickCount=4, minExtent=35)),
+        tooltip=[alt.Tooltip('일자:T', title='날짜', format='%Y-%m-%d'), alt.Tooltip(f'{column_name}:Q', title='실제 주가', format=y_format)]
+    )
+    area = base.mark_area(opacity=0.15, interpolate='monotone').encode(y2=alt.Y2('y_min_val:Q'))
+    line = base.mark_line(interpolate='monotone', size=2)
+    
+    layers = [area, line]
+    
+    if buy_line_y is not None:
+        rule_buy = alt.Chart(pd.DataFrame({'y': [buy_line_y]})).mark_rule(color='#FF5252', strokeDash=[4, 4], strokeWidth=2).encode(y='y:Q')
+        layers.append(rule_buy)
+        
+    chart = alt.layer(*layers).properties(height=160)
+    st.altair_chart(chart, width="stretch")
 
 def draw_pie_chart(df, color_scheme):
+    # 🌟 클라우드 Empty DataFrame 방어 로직 (KeyError 핵심 해결)
+    if df is None or df.empty or '현재금액' not in df.columns:
+        st.markdown("*데이터 없음*")
+        return
+        
     df = df[df['현재금액'] > 0].copy()
+    
     if df.empty:
         st.markdown("*데이터 없음*")
         return
+        
     df['비중'] = (df['현재금액'] / df['현재금액'].sum() * 100).round(1).astype(str) + '%'
     chart = alt.Chart(df).mark_arc(innerRadius=40, stroke="#fff", strokeWidth=1).encode(
         theta=alt.Theta(field="현재금액", type="quantitative"),
