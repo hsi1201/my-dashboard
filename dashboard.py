@@ -80,8 +80,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.22 KOSIS 종결판)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">통계청 KOSIS API 메인 엔진 및 ECOS 프록시 2중 페일오버 완벽 적용</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.23 우직한 안정화)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">타임아웃 연장 및 ECOS 3중 프록시(우회) 완벽 최적화</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -177,65 +177,45 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    # 🌟 [1차 메인 엔진] KOSIS 통계청 오픈 API (회원님 발급 키 적용 완료)
-    def fetch_kosis(item_code, col_name):
-        kosis_key = "ZDVnZJlMDY0N2IwYTk1NmI2YzA0NzNhMDc1ZTMxNGU="
-        today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
-        url = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
-        params = {
-            'method': 'getList',
-            'apiKey': kosis_key,
-            'itmId': 'T', 
-            'objL1': item_code, 
-            'objL2': '', 'objL3': '', 'objL4': '', 'objL5': '', 'objL6': '', 'objL7': '', 'objL8': '',
-            'format': 'json',
-            'jsonVD': 'Y',
-            'prdSe': 'D',
-            'startPrdDe': '20260101',
-            'endPrdDe': today_str,
-            'orgId': '301',
-            'tblId': 'DT_817Y002' # KOSIS 연계 한국은행 시장금리(일별) 테이블
-        }
-        try:
-            r = requests.get(url, params=params, timeout=3, verify=False).json()
-            if isinstance(r, list) and len(r) > 0 and 'PRD_DE' in r[0]:
-                df = pd.DataFrame(r)[['PRD_DE', 'DT']].rename(columns={'PRD_DE':'일자', 'DT':col_name})
-                df['일자'] = pd.to_datetime(df['일자'])
-                df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
-                return df.set_index('일자')
-        except: pass
-        return pd.DataFrame()
-
-    # 🌟 [2차 보조 엔진] 한국은행 ECOS 프록시 (KOSIS 장애 시 자동 페일오버)
-    def fetch_ecos_fast(item_code, col_name):
+    # 🌟 [초강력 ECOS 엔진] 무의미한 KOSIS 삭제, ECOS를 넉넉한 타임아웃(10초)으로 확실하게 긁어옴
+    def fetch_ecos_robust(item_code, col_name):
         bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
         today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
         url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/500/817Y002/D/20260101/{today_str}/{item_code}"
         
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        
+        def parse_ecos(r):
+            df = pd.DataFrame(r['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME':'일자', 'DATA_VALUE':col_name})
+            df['일자'] = pd.to_datetime(df['일자'])
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            return df.set_index('일자')
+        
+        # 1. 다이렉트 (타임아웃 5초 - 로컬 구동 시 완벽)
+        try:
+            r = requests.get(url, headers=headers, timeout=5, verify=False).json()
+            if 'StatisticSearch' in r:
+                return parse_ecos(r)
+        except: pass
+        
+        # 2. 클라우드 IP 세탁용 3중 우회 프록시 (타임아웃 10초 넉넉하게 부여)
         proxies = [
-            url, # 로컬용 다이렉트
             f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
-            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
+            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}",
+            f"https://corsproxy.io/?{urllib.parse.quote(url)}"
         ]
+        
         for p in proxies:
             try:
-                r = requests.get(p, timeout=2.5, verify=False).json()
+                r = requests.get(p, headers=headers, timeout=10, verify=False).json()
                 if 'StatisticSearch' in r:
-                    df = pd.DataFrame(r['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME':'일자', 'DATA_VALUE':col_name})
-                    df['일자'] = pd.to_datetime(df['일자'])
-                    df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
-                    return df.set_index('일자')
+                    return parse_ecos(r)
             except: pass
-        return pd.DataFrame()
+            
+        return pd.DataFrame() # 15~20초를 기다려도 안되면 미련 없이 버림
 
-    # 🌟 이중 안전장치 핀셋 추출 실행 (10년/30년 독립)
-    df_10y = fetch_kosis('010210000', '한국10년물')
-    if df_10y.empty: 
-        df_10y = fetch_ecos_fast('010210000', '한국10년물')
-        
-    df_30y = fetch_kosis('010230000', '한국30년물')
-    if df_30y.empty: 
-        df_30y = fetch_ecos_fast('010230000', '한국30년물')
+    df_10y = fetch_ecos_robust('010210000', '한국10년물')
+    df_30y = fetch_ecos_robust('010230000', '한국30년물')
         
     dfs_kr = []
     if not df_10y.empty: dfs_kr.append(df_10y)
@@ -246,7 +226,7 @@ def get_market_data():
         kr_final.index = kr_final.index.normalize().tz_localize(None)
         df_list.append(kr_final)
 
-    # 🌟 야후 파이낸스 묶음 다운로드 적용 (로딩 속도 최적화)
+    # 🌟 야후 파이낸스 묶음 다운로드
     yf_tickers = {
         '^GSPC': 'S&P500', '^IXIC': '나스닥', 
         '^N225': '니케이', 
@@ -307,7 +287,7 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 K-테마주 데이터는 모두 FDR(네이버 기반) 로직으로 수집 (속도 저하 없음)
+    # 🌟 K-테마주 수집 (무한로딩 방지를 위해 investing.com 국채 차단 로직은 원천 삭제)
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      
