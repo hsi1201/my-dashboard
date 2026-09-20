@@ -180,7 +180,7 @@ def get_market_data():
     # 복사하신 일반 인증키(Decoding)를 아래 따옴표 안에 그대로 붙여넣으세요.
     data_go_kr_key = "e2abe4ec8b059b41114f721013adb216f640d2665e8e06b812c117f73e2b8562"
     
-    if data_go_kr_key != "이곳에_발급받은_Decoding_키를_붙여넣으세요":
+    if data_go_kr_key:  # 키가 존재하기만 하면 무조건 실행하도록 수정
         try:
             today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
             
