@@ -1137,7 +1137,7 @@ with tab6:
             st.markdown("<br>", unsafe_allow_html=True)
         
     elif pwd != "":
-        st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+        st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
     else:
         st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
 
@@ -1198,6 +1198,6 @@ with tab7:
             st.dataframe(df_fixed, use_container_width=True, hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")}, height=len(df_fixed)*36 + 43)
 
     elif pwd2 != "":
-        st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+        st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
     else:
         st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
