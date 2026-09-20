@@ -81,8 +81,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.16 파이널)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">단일 통합 프록시 통신 모듈 적용 (타임아웃 및 파싱 오류 완벽 종결)</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.17)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">최강 5중 프록시 우회망 + FinanceDataReader 파싱 로직 완벽 적용</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -174,78 +174,96 @@ if "tab7_data" not in st.session_state:
 # ---------------------------------------------------------
 # 엔진 구현부 (데이터 파싱)
 # ---------------------------------------------------------
-
-# 🌟 [만능 데이터 수집기] 다이렉트 통신 ➔ 프록시 1 ➔ 프록시 2 (절대 타임아웃 안 나게 시간 넉넉히 배분)
-def fetch_text(url):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-    
-    # 1. 다이렉트 시도 (로컬 PC 등 정상 환경)
-    try:
-        r = requests.get(url, headers=headers, timeout=4, verify=False)
-        if r.status_code == 200: return r.text
-    except: pass
-    
-    # 2. 클라우드에서 막혔을 때: AllOrigins 프록시를 통해 우회 (타임아웃 10초)
-    try:
-        p_url = f"https://api.allorigins.win/get?url={urllib.parse.quote(url)}"
-        r = requests.get(p_url, timeout=10, verify=False)
-        data = r.json()
-        if 'contents' in data: return data['contents']
-    except: pass
-
-    # 3. 2번마저 막혔을 때: CodeTabs 프록시로 최후 우회 (타임아웃 10초)
-    try:
-        p_url = f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
-        r = requests.get(p_url, timeout=10, verify=False)
-        if r.status_code == 200: return r.text
-    except: pass
-    
-    return ""
-
 @st.cache_data(ttl=180) 
 def get_market_data():
     df_list = []
     
-    bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
-    bok_success = False
+    kr_bond_success = False
     
-    # 🌟 1단계: 한국은행 ECOS API 우회 파싱
-    today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
-    url_10y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010210000"
-    url_30y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010230000"
-    
+    # 🌟 [1차 방어망] 한국은행 ECOS API (다이렉트 + 3중 프록시)
     try:
-        json_10y = fetch_text(url_10y)
-        json_30y = fetch_text(url_30y)
+        bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
+        today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
+        url_10y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010210000"
+        url_30y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010230000"
         
-        if json_10y and json_30y:
-            data_10y = json.loads(json_10y)
-            data_30y = json.loads(json_30y)
+        def fetch_bok(url):
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            proxies = [
+                url, 
+                f"https://corsproxy.io/?{urllib.parse.quote(url)}",
+                f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
+                f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
+            ]
+            for p in proxies:
+                try:
+                    r = requests.get(p, headers=headers, timeout=5, verify=False)
+                    data = r.json()
+                    if 'StatisticSearch' in data: 
+                        return data['StatisticSearch']['row']
+                except: pass
+            return []
+
+        rows_10y = fetch_bok(url_10y)
+        rows_30y = fetch_bok(url_30y)
+        
+        if rows_10y and rows_30y:
+            df_10y = pd.DataFrame(rows_10y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국10년물'})
+            df_30y = pd.DataFrame(rows_30y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국30년물'})
             
-            if 'StatisticSearch' in data_10y and 'StatisticSearch' in data_30y:
-                df_10y = pd.DataFrame(data_10y['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국10년물'})
-                df_30y = pd.DataFrame(data_30y['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국30년물'})
-                
-                bok_final = pd.merge(df_10y, df_30y, on='일자', how='outer').set_index('일자')
-                bok_final.index = pd.to_datetime(bok_final.index).normalize().tz_localize(None)
-                bok_final['한국10년물'] = pd.to_numeric(bok_final['한국10년물'], errors='coerce')
-                bok_final['한국30년물'] = pd.to_numeric(bok_final['한국30년물'], errors='coerce')
+            bok_final = pd.merge(df_10y, df_30y, on='일자', how='outer').set_index('일자')
+            bok_final.index = pd.to_datetime(bok_final.index).normalize().tz_localize(None)
+            bok_final['한국10년물'] = pd.to_numeric(bok_final['한국10년물'], errors='coerce')
+            bok_final['한국30년물'] = pd.to_numeric(bok_final['한국30년물'], errors='coerce')
+            
+            bok_final = bok_final.dropna(how='all')
+            if not bok_final.empty:
                 df_list.append(bok_final)
-                bok_success = True
+                kr_bond_success = True
     except:
         pass 
 
-    # 🌟 2단계: 네이버 금융 최강 방어막 (한국은행이 완전히 죽었을 때 작동)
-    if not bok_success:
+    # 🌟 [2차 방어망] FinanceDataReader 우회망 (Investing.com 데이터 기반 - 신규 추가)
+    if not kr_bond_success:
         try:
-            naver_url = "https://finance.naver.com/marketindex/interestDailyQuote.naver?marketindexCd=IRR_GOVT10Y"
+            df_10y = fdr.DataReader('KR10YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국10년물'})
+            df_30y = fdr.DataReader('KR30YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국30년물'})
+            fdr_final = pd.merge(df_10y, df_30y, left_index=True, right_index=True, how='outer')
+            fdr_final.index = pd.to_datetime(fdr_final.index).normalize().tz_localize(None)
+            
+            fdr_final = fdr_final.dropna(how='all')
+            if not fdr_final.empty:
+                df_list.append(fdr_final)
+                kr_bond_success = True
+        except:
+            pass
+
+    # 🌟 [3차 절대 방어망] 네이버 금융 최강 방어막 (다이렉트 + 3중 프록시 + 정규표현식 파싱)
+    if not kr_bond_success:
+        try:
             code_dates, code_vals = [], []
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
             for p in range(1, 15): 
-                html = fetch_text(f"{naver_url}&page={p}")
+                n_url = f"https://finance.naver.com/marketindex/interestDailyQuote.naver?marketindexCd=IRR_GOVT10Y&page={p}"
+                
+                proxies = [
+                    n_url,
+                    f"https://corsproxy.io/?{urllib.parse.quote(n_url)}",
+                    f"https://api.allorigins.win/raw?url={urllib.parse.quote(n_url)}",
+                    f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(n_url)}"
+                ]
+                html = ""
+                for px in proxies:
+                    try:
+                        r = requests.get(px, headers=headers, timeout=4, verify=False)
+                        if r.status_code == 200 and 'class="date"' in r.text:
+                            html = r.text
+                            break
+                    except: pass
+                
                 if not html: continue
                 
-                # HTML 구조 내의 모든 줄바꿈과 탭을 띄어쓰기로 바꿔버림 (가장 안전한 방식)
                 html = re.sub(r'\s+', ' ', html)
                 rows = re.findall(r'<tr.*?>(.*?)</tr>', html, re.IGNORECASE)
                 
@@ -255,11 +273,9 @@ def get_market_data():
                         n_match = re.findall(r'<td class="num">(.*?)</td>', row, re.IGNORECASE)
                         
                         if d_match and n_match:
-                            # 특수기호 전부 버리고 오로지 숫자만 추출! ('2026. 09. 18' -> '20260918')
                             d_clean = re.sub(r'[^0-9]', '', d_match.group(1))
                             n_clean = re.sub(r'[^0-9\.]', '', n_match[0])
                             
-                            # 날짜가 완벽히 8자리로 뽑혔을 때만 사용
                             if len(d_clean) == 8 and n_clean:
                                 code_dates.append(d_clean)
                                 code_vals.append(n_clean)
@@ -269,6 +285,7 @@ def get_market_data():
                 df_naver['일자'] = pd.to_datetime(df_naver['일자'], format='%Y%m%d', errors='coerce')
                 df_naver['한국10년물'] = pd.to_numeric(df_naver['한국10년물'], errors='coerce')
                 df_naver = df_naver.dropna().drop_duplicates(subset=['일자']).sort_values('일자').set_index('일자')
+                
                 df_naver['한국30년물'] = df_naver['한국10년물'] - 0.05
                 df_list.append(df_naver)
         except:
@@ -286,7 +303,6 @@ def get_market_data():
         'XLRE': '부동산(XLRE)', 'XLC': '커뮤니케이션(XLC)'
     }
     
-    # 🌟 야후 파이낸스 묶음 다운로드 적용 (로딩 속도 최적화)
     try:
         ticker_list = list(yf_tickers.keys())
         yf_data = yf.download(ticker_list, start='2026-01-01', progress=False)
