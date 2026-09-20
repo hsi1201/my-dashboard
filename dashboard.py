@@ -81,8 +81,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.17)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">최강 5중 프록시 우회망 + FinanceDataReader 파싱 로직 완벽 적용</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.18 GPT Edition)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">국채 10/30년물 독립 파싱 설계 + 가짜 데이터 및 강제 결측치 덮어쓰기 로직 원천 삭제</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -178,68 +178,82 @@ if "tab7_data" not in st.session_state:
 def get_market_data():
     df_list = []
     
-    kr_bond_success = False
+    bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
+    today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
+    url_10y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010210000"
+    url_30y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010230000"
     
-    # 🌟 [1차 방어망] 한국은행 ECOS API (다이렉트 + 3중 프록시)
-    try:
-        bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
-        today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
-        url_10y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010210000"
-        url_30y = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/5000/817Y002/D/20260101/{today_str}/010230000"
-        
-        def fetch_bok(url):
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            proxies = [
-                url, 
-                f"https://corsproxy.io/?{urllib.parse.quote(url)}",
-                f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
-                f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
-            ]
-            for p in proxies:
-                try:
-                    r = requests.get(p, headers=headers, timeout=5, verify=False)
-                    data = r.json()
-                    if 'StatisticSearch' in data: 
-                        return data['StatisticSearch']['row']
-                except: pass
-            return []
+    def fetch_bok(url):
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        proxies = [
+            url, 
+            f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
+            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
+        ]
+        for p in proxies:
+            try:
+                r = requests.get(p, headers=headers, timeout=6, verify=False)
+                data = r.json()
+                if 'StatisticSearch' in data: 
+                    return data['StatisticSearch']['row']
+            except: pass
+        return []
 
-        rows_10y = fetch_bok(url_10y)
-        rows_30y = fetch_bok(url_30y)
-        
-        if rows_10y and rows_30y:
-            df_10y = pd.DataFrame(rows_10y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국10년물'})
-            df_30y = pd.DataFrame(rows_30y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국30년물'})
-            
-            bok_final = pd.merge(df_10y, df_30y, on='일자', how='outer').set_index('일자')
-            bok_final.index = pd.to_datetime(bok_final.index).normalize().tz_localize(None)
-            bok_final['한국10년물'] = pd.to_numeric(bok_final['한국10년물'], errors='coerce')
-            bok_final['한국30년물'] = pd.to_numeric(bok_final['한국30년물'], errors='coerce')
-            
-            bok_final = bok_final.dropna(how='all')
-            if not bok_final.empty:
-                df_list.append(bok_final)
-                kr_bond_success = True
-    except:
-        pass 
+    # 🌟 [완벽 독립 수집 구조 적용] 10년/30년 중 하나라도 성공하면 살린다!
+    df_bok_10y = pd.DataFrame()
+    df_bok_30y = pd.DataFrame()
 
-    # 🌟 [2차 방어망] FinanceDataReader 우회망 (Investing.com 데이터 기반 - 신규 추가)
-    if not kr_bond_success:
+    rows_10y = fetch_bok(url_10y)
+    if rows_10y:
+        df_bok_10y = pd.DataFrame(rows_10y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국10년물'})
+        df_bok_10y['일자'] = pd.to_datetime(df_bok_10y['일자'])
+        df_bok_10y['한국10년물'] = pd.to_numeric(df_bok_10y['한국10년물'], errors='coerce')
+        df_bok_10y.set_index('일자', inplace=True)
+
+    rows_30y = fetch_bok(url_30y)
+    if rows_30y:
+        df_bok_30y = pd.DataFrame(rows_30y)[['TIME', 'DATA_VALUE']].rename(columns={'TIME': '일자', 'DATA_VALUE': '한국30년물'})
+        df_bok_30y['일자'] = pd.to_datetime(df_bok_30y['일자'])
+        df_bok_30y['한국30년물'] = pd.to_numeric(df_bok_30y['한국30년물'], errors='coerce')
+        df_bok_30y.set_index('일자', inplace=True)
+
+    dfs_to_concat = []
+    if not df_bok_10y.empty: dfs_to_concat.append(df_bok_10y)
+    if not df_bok_30y.empty: dfs_to_concat.append(df_bok_30y)
+
+    kr_10y_success = not df_bok_10y.empty
+    kr_30y_success = not df_bok_30y.empty
+
+    if dfs_to_concat:
+        bok_final = pd.concat(dfs_to_concat, axis=1)
+        bok_final.index = bok_final.index.normalize().tz_localize(None)
+        df_list.append(bok_final)
+
+    # 🌟 [개별 독립 Fallback] FDR (한국은행 실패 시 각각 작동)
+    df_fdr_list = []
+    if not kr_10y_success:
         try:
-            df_10y = fdr.DataReader('KR10YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국10년물'})
-            df_30y = fdr.DataReader('KR30YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국30년물'})
-            fdr_final = pd.merge(df_10y, df_30y, left_index=True, right_index=True, how='outer')
-            fdr_final.index = pd.to_datetime(fdr_final.index).normalize().tz_localize(None)
-            
-            fdr_final = fdr_final.dropna(how='all')
-            if not fdr_final.empty:
-                df_list.append(fdr_final)
-                kr_bond_success = True
-        except:
-            pass
+            df_10 = fdr.DataReader('KR10YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국10년물'})
+            if not df_10.empty:
+                df_fdr_list.append(df_10)
+                kr_10y_success = True
+        except: pass
 
-    # 🌟 [3차 절대 방어망] 네이버 금융 최강 방어막 (다이렉트 + 3중 프록시 + 정규표현식 파싱)
-    if not kr_bond_success:
+    if not kr_30y_success:
+        try:
+            df_30 = fdr.DataReader('KR30YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국30년물'})
+            if not df_30.empty:
+                df_fdr_list.append(df_30)
+                kr_30y_success = True
+        except: pass
+
+    if df_fdr_list:
+        fdr_final = pd.concat(df_fdr_list, axis=1)
+        fdr_final.index = pd.to_datetime(fdr_final.index).normalize().tz_localize(None)
+        df_list.append(fdr_final)
+
+    # 🌟 [최후의 네이버 금융 크롤링] 10년물이 정말 안될 때만 시도 (가짜 30년물 조작 코드는 절대 쓰지 않음)
+    if not kr_10y_success:
         try:
             code_dates, code_vals = [], []
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -249,7 +263,6 @@ def get_market_data():
                 
                 proxies = [
                     n_url,
-                    f"https://corsproxy.io/?{urllib.parse.quote(n_url)}",
                     f"https://api.allorigins.win/raw?url={urllib.parse.quote(n_url)}",
                     f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(n_url)}"
                 ]
@@ -285,8 +298,6 @@ def get_market_data():
                 df_naver['일자'] = pd.to_datetime(df_naver['일자'], format='%Y%m%d', errors='coerce')
                 df_naver['한국10년물'] = pd.to_numeric(df_naver['한국10년물'], errors='coerce')
                 df_naver = df_naver.dropna().drop_duplicates(subset=['일자']).sort_values('일자').set_index('일자')
-                
-                df_naver['한국30년물'] = df_naver['한국10년물'] - 0.05
                 df_list.append(df_naver)
         except:
             pass
@@ -412,8 +423,7 @@ def get_market_data():
     df = df[df['일자'] >= '2026-01-01']
     df['일자'] = df['일자'].dt.strftime('%Y-%m-%d')
     
-    if '한국10년물' not in df.columns: df['한국10년물'] = 3.123 
-    if '한국30년물' not in df.columns: df['한국30년물'] = 2.987
+    # 🌟 오류를 은폐하던 가짜 기본값(3.123, 2.987) 강제 주입 로직을 완전히 삭제했습니다.
     
     for col in df.columns:
         if col != '일자':
