@@ -80,7 +80,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.27)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.28)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -769,10 +769,14 @@ def process_global_upload(uploaded_file):
 kr10_val = latest_data.get('한국10년물', None)
 kr30_val = latest_data.get('한국30년물', None)
 
+kr10_str = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f} %"
+kr30_str = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f} %"
+kr10_chg = "" if pd.isna(kr10_val) or kr10_val == 0 else changes.get('한국10년물', '')
+kr30_chg = "" if pd.isna(kr30_val) or kr30_val == 0 else changes.get('한국30년물', '')
+
 kr10_info = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f}% ({changes.get('한국10년물', '')})"
 kr30_info = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f}% ({changes.get('한국30년물', '')})"
 
-# 데이터 누락 시 보여줄 안내 메시지 동적 생성
 missing_data_warning = ""
 if pd.isna(kr10_val) or kr10_val == 0 or pd.isna(kr30_val) or kr30_val == 0:
     missing_data_warning = """
