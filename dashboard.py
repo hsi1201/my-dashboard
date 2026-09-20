@@ -6,6 +6,8 @@ import FinanceDataReader as fdr
 import requests
 import xml.etree.ElementTree as ET
 import hashlib
+import re
+import urllib.parse
 import urllib3
 from streamlit_autorefresh import st_autorefresh 
 
@@ -78,8 +80,8 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.20 광속버전)</h2>
-    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">공공데이터포털 API 및 FDR 클라우드 프리패스 투트랙 연동 완료</p>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.22 KOSIS 종결판)</h2>
+    <p style="color: #888; font-size: 0.95rem; margin-top: 0px;">통계청 KOSIS API 메인 엔진 및 ECOS 프록시 2중 페일오버 완벽 적용</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -174,73 +176,75 @@ if "tab7_data" not in st.session_state:
 @st.cache_data(ttl=180) 
 def get_market_data():
     df_list = []
-    kr_bond_success = False
     
-    # 🌟 [1차 메인 엔진] 공공데이터포털(data.go.kr) 금융위원회 API
-    # 복사하신 일반 인증키(Decoding)를 아래 따옴표 안에 그대로 붙여넣으세요.
-    data_go_kr_key = "e2abe4ec8b059b41114f721013adb216f640d2665e8e06b812c117f73e2b8562"
-    
-    if data_go_kr_key:  # 키가 존재하기만 하면 무조건 실행하도록 수정
+    # 🌟 [1차 메인 엔진] KOSIS 통계청 오픈 API (회원님 발급 키 적용 완료)
+    def fetch_kosis(item_code, col_name):
+        kosis_key = "ZDVnZJlMDY0N2IwYTk1NmI2YzA0NzNhMDc1ZTMxNGU="
+        today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
+        url = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
+        params = {
+            'method': 'getList',
+            'apiKey': kosis_key,
+            'itmId': 'T', 
+            'objL1': item_code, 
+            'objL2': '', 'objL3': '', 'objL4': '', 'objL5': '', 'objL6': '', 'objL7': '', 'objL8': '',
+            'format': 'json',
+            'jsonVD': 'Y',
+            'prdSe': 'D',
+            'startPrdDe': '20260101',
+            'endPrdDe': today_str,
+            'orgId': '301',
+            'tblId': 'DT_817Y002' # KOSIS 연계 한국은행 시장금리(일별) 테이블
+        }
         try:
-            today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
-            
-            # API 데이터 핀셋 추출 함수
-            def fetch_fsc_bond(item_name, col_name):
-                url = "http://apis.data.go.kr/1160100/apiGetBondQuotInfo/getBondQuotInfo"
-                params = {
-                    'serviceKey': data_go_kr_key,
-                    'numOfRows': '500',  # 최근 500영업일 호출
-                    'pageNo': '1',
-                    'resultType': 'json',
-                    'beginBasDt': '20260101',
-                    'endBasDt': today_str,
-                    'itmsNm': item_name  # '국고채권(10년)', '국고채권(30년)' 지정
-                }
-                res = requests.get(url, params=params, timeout=5)
-                items = res.json()['response']['body']['items']['item']
-                
-                # basDt: 일자, clprBnfRt: 종가수익률(금리)
-                df = pd.DataFrame(items)[['basDt', 'clprBnfRt']] 
-                df = df.rename(columns={'basDt': '일자', 'clprBnfRt': col_name})
+            r = requests.get(url, params=params, timeout=3, verify=False).json()
+            if isinstance(r, list) and len(r) > 0 and 'PRD_DE' in r[0]:
+                df = pd.DataFrame(r)[['PRD_DE', 'DT']].rename(columns={'PRD_DE':'일자', 'DT':col_name})
                 df['일자'] = pd.to_datetime(df['일자'])
                 df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
                 return df.set_index('일자')
+        except: pass
+        return pd.DataFrame()
 
-            # 10년물과 30년물을 정식 데이터로 독립 호출
-            df_10y_pub = fetch_fsc_bond('국고채권(10년)', '한국10년물')
-            df_30y_pub = fetch_fsc_bond('국고채권(30년)', '한국30년물')
-            
-            if not df_10y_pub.empty and not df_30y_pub.empty:
-                kr_final = pd.merge(df_10y_pub, df_30y_pub, left_index=True, right_index=True, how='outer')
-                kr_final = kr_final.sort_index().dropna(how='all')
-                df_list.append(kr_final)
-                kr_bond_success = True
-        except:
-            pass
-            
-    # 🌟 [2차 엔진] FinanceDataReader (클라우드 우회 100% 보장 프리패스 망)
-    # 한국은행과 네이버 통신을 아예 지워버리고 빠르고 안정적인 Investing.com 데이터를 직통으로 꽂아 넣습니다.
-    if not kr_bond_success:
-        try:
-            df_kr_bonds = []
-            
-            # 독립 수집: 10년물
-            df_10y = fdr.DataReader('KR10YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국10년물'})
-            if not df_10y.empty:
-                df_kr_bonds.append(df_10y)
-                
-            # 독립 수집: 30년물
-            df_30y = fdr.DataReader('KR30YT=RR', '2026-01-01')[['Close']].rename(columns={'Close': '한국30년물'})
-            if not df_30y.empty:
-                df_kr_bonds.append(df_30y)
-                
-            if df_kr_bonds:
-                kr_final = pd.concat(df_kr_bonds, axis=1)
-                kr_final.index = pd.to_datetime(kr_final.index).normalize().tz_localize(None)
-                df_list.append(kr_final)
-                kr_bond_success = True
-        except:
-            pass
+    # 🌟 [2차 보조 엔진] 한국은행 ECOS 프록시 (KOSIS 장애 시 자동 페일오버)
+    def fetch_ecos_fast(item_code, col_name):
+        bok_api_key = "13ZIQ3I6LS3K4CKFDZO1" 
+        today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
+        url = f"https://ecos.bok.or.kr/api/StatisticSearch/{bok_api_key}/json/kr/1/500/817Y002/D/20260101/{today_str}/{item_code}"
+        
+        proxies = [
+            url, # 로컬용 다이렉트
+            f"https://api.allorigins.win/raw?url={urllib.parse.quote(url)}",
+            f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url)}"
+        ]
+        for p in proxies:
+            try:
+                r = requests.get(p, timeout=2.5, verify=False).json()
+                if 'StatisticSearch' in r:
+                    df = pd.DataFrame(r['StatisticSearch']['row'])[['TIME', 'DATA_VALUE']].rename(columns={'TIME':'일자', 'DATA_VALUE':col_name})
+                    df['일자'] = pd.to_datetime(df['일자'])
+                    df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+                    return df.set_index('일자')
+            except: pass
+        return pd.DataFrame()
+
+    # 🌟 이중 안전장치 핀셋 추출 실행 (10년/30년 독립)
+    df_10y = fetch_kosis('010210000', '한국10년물')
+    if df_10y.empty: 
+        df_10y = fetch_ecos_fast('010210000', '한국10년물')
+        
+    df_30y = fetch_kosis('010230000', '한국30년물')
+    if df_30y.empty: 
+        df_30y = fetch_ecos_fast('010230000', '한국30년물')
+        
+    dfs_kr = []
+    if not df_10y.empty: dfs_kr.append(df_10y)
+    if not df_30y.empty: dfs_kr.append(df_30y)
+    
+    if dfs_kr:
+        kr_final = pd.concat(dfs_kr, axis=1).sort_index()
+        kr_final.index = kr_final.index.normalize().tz_localize(None)
+        df_list.append(kr_final)
 
     # 🌟 야후 파이낸스 묶음 다운로드 적용 (로딩 속도 최적화)
     yf_tickers = {
@@ -303,7 +307,7 @@ def get_market_data():
     except:
         pass
 
-    # 🌟 클라우드 방화벽 무력화 엔진: K-테마주 데이터는 모두 FDR 로직으로 통합 수집
+    # 🌟 K-테마주 데이터는 모두 FDR(네이버 기반) 로직으로 수집 (속도 저하 없음)
     fdr_tickers = {
         'USD/KRW': '환율($/원)',
         '091160': 'K-반도체',      
@@ -877,8 +881,16 @@ with tab1:
     cols4 = st.columns(4)
     cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
     cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
-    cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", f"{latest_data.get('한국10년물', 0):.3f} %", changes.get('한국10년물', '0.00'))
-    cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", f"{latest_data.get('한국30년물', 0):.3f} %", changes.get('한국30년물', '0.00'))
+    
+    kr10_val = latest_data.get('한국10년물', None)
+    kr30_val = latest_data.get('한국30년물', None)
+    kr10_str = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f} %"
+    kr30_str = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f} %"
+    kr10_chg = "" if pd.isna(kr10_val) or kr10_val == 0 else changes.get('한국10년물', '')
+    kr30_chg = "" if pd.isna(kr30_val) or kr30_val == 0 else changes.get('한국30년물', '')
+
+    cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", kr10_str, kr10_chg)
+    cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", kr30_str, kr30_chg)
 
 with tab2:
     chart_cols = st.columns(2)
