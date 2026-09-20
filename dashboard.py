@@ -176,24 +176,45 @@ def get_market_data():
     df_list = []
     kr_bond_success = False
     
-    # 🌟 [1차 엔진] 공공데이터포털(data.go.kr) 금융위원회 API
-    # 회원님께서 포털에 가입하시고 키를 발급받아 아래 변수에 넣으시면 1순위로 즉각 작동합니다.
-    data_go_kr_key = "여기에_공공데이터포털_일반인증키(Decoding)_입력"
+    # 🌟 [1차 메인 엔진] 공공데이터포털(data.go.kr) 금융위원회 API
+    # 복사하신 일반 인증키(Decoding)를 아래 따옴표 안에 그대로 붙여넣으세요.
+    data_go_kr_key = "e2abe4ec8b059b41114f721013adb216f640d2665e8e06b812c117f73e2b8562"
     
-    if data_go_kr_key != "여기에_공공데이터포털_일반인증키(Decoding)_입력":
+    if data_go_kr_key != "이곳에_발급받은_Decoding_키를_붙여넣으세요":
         try:
-            url = "http://apis.data.go.kr/1160100/apiGetBondQuotInfo/getBondQuotInfo"
-            params = {
-                'serviceKey': data_go_kr_key,
-                'numOfRows': '10',
-                'pageNo': '1',
-                'resultType': 'json'
-                # 실제 API 연동 시 'itmsNm' 파라미터로 10년물/30년물 코드를 세팅합니다.
-            }
-            # 추후 키 입력 시 활성화될 API 통신부
-            # res = requests.get(url, params=params, timeout=5)
-            # data = res.json()
-            pass
+            today_str = pd.Timestamp.today(tz='Asia/Seoul').strftime('%Y%m%d')
+            
+            # API 데이터 핀셋 추출 함수
+            def fetch_fsc_bond(item_name, col_name):
+                url = "http://apis.data.go.kr/1160100/apiGetBondQuotInfo/getBondQuotInfo"
+                params = {
+                    'serviceKey': data_go_kr_key,
+                    'numOfRows': '500',  # 최근 500영업일 호출
+                    'pageNo': '1',
+                    'resultType': 'json',
+                    'beginBasDt': '20260101',
+                    'endBasDt': today_str,
+                    'itmsNm': item_name  # '국고채권(10년)', '국고채권(30년)' 지정
+                }
+                res = requests.get(url, params=params, timeout=5)
+                items = res.json()['response']['body']['items']['item']
+                
+                # basDt: 일자, clprBnfRt: 종가수익률(금리)
+                df = pd.DataFrame(items)[['basDt', 'clprBnfRt']] 
+                df = df.rename(columns={'basDt': '일자', 'clprBnfRt': col_name})
+                df['일자'] = pd.to_datetime(df['일자'])
+                df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+                return df.set_index('일자')
+
+            # 10년물과 30년물을 정식 데이터로 독립 호출
+            df_10y_pub = fetch_fsc_bond('국고채권(10년)', '한국10년물')
+            df_30y_pub = fetch_fsc_bond('국고채권(30년)', '한국30년물')
+            
+            if not df_10y_pub.empty and not df_30y_pub.empty:
+                kr_final = pd.merge(df_10y_pub, df_30y_pub, left_index=True, right_index=True, how='outer')
+                kr_final = kr_final.sort_index().dropna(how='all')
+                df_list.append(kr_final)
+                kr_bond_success = True
         except:
             pass
             
