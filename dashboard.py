@@ -772,7 +772,23 @@ kr30_val = latest_data.get('한국30년물', None)
 kr10_info = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f}% ({changes.get('한국10년물', '')})"
 kr30_info = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f}% ({changes.get('한국30년물', '')})"
 
+# 데이터 누락 시 보여줄 안내 메시지 동적 생성
+missing_data_warning = ""
+if pd.isna(kr10_val) or kr10_val == 0 or pd.isna(kr30_val) or kr30_val == 0:
+    missing_data_warning = """
+    <div style='background-color: rgba(255, 82, 82, 0.1); border-left: 4px solid #FF5252; padding: 10px 15px; margin-bottom: 10px; border-radius: 4px;'>
+        <b style='color: #FF5252;'>⚠️ [알림] 한국 국고채(10년물/30년물) 금리가 '데이터 없음'으로 표시되는 이유</b><br>
+        <span style='font-size: 0.9rem;'>
+        현재 대시보드가 구동 중인 외부 클라우드 서버의 IP 주소가 보안상의 이유로 <b>한국은행(ECOS) 방화벽에 의해 일시적으로 차단</b>되었기 때문입니다.<br>
+        (한국은행 시스템은 해외에서의 자동화된 데이터 수집 요청을 봇(Bot)으로 간주하여 종종 차단합니다.)<br><br>
+        💡 <b>해결 방법:</b> 대시보드 제작자가 제공한 <b>로컬 구동 파일(PC 바탕화면 아이콘)</b>을 통해 실행하시면, 국내 IP를 통해 방화벽 간섭 없이 모든 데이터를 정상적으로 확인하실 수 있습니다.
+        </span>
+    </div>
+    """
+
 with st.expander(f"ℹ️ 시스템 알림 및 데이터 안내 (🔄 최근 갱신: {sync_time} 기준)"):
+    if missing_data_warning:
+        st.markdown(missing_data_warning, unsafe_allow_html=True)
     st.info(f"🔔 **[현재 국고채 금리 상황]** 🇰🇷 10년물: **{kr10_info}** &nbsp; | &nbsp; 🇰🇷 30년물: **{kr30_info}**")
     st.warning("⚠️ **주말(토/일) 데이터 지연 안내:** 야후 파이낸스 서버의 주말 결산 배치 작업으로 인해, 토요일에는 아시아 증시(코스피, 니케이 등)의 최신(금요일) 데이터가 하루 지연되어 표기될 수 있습니다. 월요일 오전 정상 동기화됩니다.")
     st.markdown("""
@@ -867,13 +883,6 @@ with tab1:
     cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
     cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
     
-    kr10_val = latest_data.get('한국10년물', None)
-    kr30_val = latest_data.get('한국30년물', None)
-    kr10_str = "데이터 없음" if pd.isna(kr10_val) or kr10_val == 0 else f"{kr10_val:.3f} %"
-    kr30_str = "데이터 없음" if pd.isna(kr30_val) or kr30_val == 0 else f"{kr30_val:.3f} %"
-    kr10_chg = "" if pd.isna(kr10_val) or kr10_val == 0 else changes.get('한국10년물', '')
-    kr30_chg = "" if pd.isna(kr30_val) or kr30_val == 0 else changes.get('한국30년물', '')
-
     cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", kr10_str, kr10_chg)
     cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", kr30_str, kr30_chg)
 
