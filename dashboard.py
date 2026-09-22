@@ -94,7 +94,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.50 표 칼럼 재배치본)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.51 탑다운 매크로 배치)</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -232,9 +232,9 @@ def parse_portfolio_excel(file):
             '현재가_num': cur_price,
             '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
             '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
+            '현재가치': f"₩ {cur_val:,.0f}",
             '평가손익': f"{'+' if profit_loss > 0 else '-'}₩ {abs(profit_loss):,.0f}" if profit_loss != 0 else "₩ 0", 
             '수익률(%)': f"{ret*100:+.2f}%",
-            '현재가치': f"₩ {cur_val:,.0f}",
             '현재가치_num': cur_val,
             '계좌내 비중(%)': f"{weight*100:.1f}%"
         })
@@ -350,34 +350,7 @@ def parse_asset_flow_excel(file):
 
 
 def get_default_portfolio_data():
-    metrics = {
-        "총자산": "₩ 98,515,598", "총매수금액": "₩ 98,263,990", "평가손익": "+₩ 251,608 (0.3%)",
-        "실현손익": "+₩ 9,627,261", "현금비중": "28.4%", "현금액": "₩ 27,929,877"
-    }
-    df_region = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [21786755, 40719646, 8079320, 27929877]})
-    df_base = pd.DataFrame({"분류": ["한국", "미국", "글로벌", "현금"], "현재금액": [63932155, 6653566, 0, 27929877]})
-    df_asset = pd.DataFrame({"분류": ["주식", "채권", "혼합", "가상자산", "현금"], "현재금액": [54367821, 7430900, 8787000, 0, 27929877]})
-    df_holdings = pd.DataFrame({
-        "계좌 구분": ["IRP - 장기"]*11 + ["ISA - 중기"]*2 + ["국내주식 - 단기"]*5 + ["해외주식 - 단기"]*3 + ["비상금"],
-        "종목명": ["KODEX 200", "TIGER 미국나스닥100", "KODEX 코스닥150", "TIGER 일본니케이225", "KODEX 차이나CSI300", "TIGER 미국S&P500", "ACE 미국S&P500미국채혼합50액티브", "ACE 미국나스닥100미국채혼합50액티브", "KODEX 국고채30년액티브", "ACE 미국30년국채액티브(H)", "IRP예수금", "TIGER 미국배당다우존스", "ISA예수금", "한온시스템", "TIGER 바이오TOP10", "PLUS K방산", "SOL AI반도체소부장", "국내주식예수금", "로봇공학 및 인공지능 글로벌엑스(BOTZ)", "나스닥 스마트 그리드 인프라(GRID)", "해외주식예수금", "카카오뱅크(세이프박스)"],
-        "보유수량": ["73", "42", "280", "90", "120", "350", "300", "300", "40", "550", "1", "520", "1", "250", "300", "20", "100", "1", "65", "14", "1", "1"],
-        "매수단가_num": [63969, 188498, 14132, 38781, 15877, 24866, 14671, 15866, 107595, 7655, 12147405, 15401, 2018773, 4187, 7623, 66065, 24595, 2878878, 51657, 253298, 2874694, 8000000],
-        "현재가_num": [109285, 181225, 13830, 34505, 15060, 26280, 14060, 15230, 87460, 7150, 12147405, 14815, 2018773, 3445, 6680, 53045, 25120, 2878878, 48718, 249064, 2874694, 8010127],
-        "매수단가": ["₩ 63,969", "₩ 188,498", "₩ 14,132", "₩ 38,781", "₩ 15,877", "₩ 24,866", "₩ 14,671", "₩ 15,866", "₩ 107,595", "₩ 7,655", "₩ 12,147,405", "₩ 15,401", "₩ 2,018,773", "₩ 4,187", "₩ 7,623", "₩ 66,065", "₩ 24,595", "₩ 2,878,878", "₩ 51,657", "₩ 253,298", "₩ 2,874,694", "₩ 8,000,000"],
-        "현재가": ["₩ 109,285", "₩ 181,225", "₩ 13,830", "₩ 34,505", "₩ 15,060", "₩ 26,280", "₩ 14,060", "₩ 15,230", "₩ 87,460", "₩ 7,150", "₩ 12,147,405", "₩ 14,815", "₩ 2,018,773", "₩ 3,445", "₩ 6,680", "₩ 53,045", "₩ 25,120", "₩ 2,878,878", "₩ 48,718", "₩ 249,064", "₩ 2,874,694", "₩ 8,010,127"],
-        "평가손익": ["+₩ 3,308,068", "-₩ 305,466", "-₩ 84,560", "-₩ 384,840", "-₩ 98,040", "+₩ 494,900", "-₩ 183,300", "-₩ 190,800", "-₩ 805,400", "-₩ 277,750", "₩ 0", "-₩ 304,720", "₩ 0", "-₩ 185,500", "-₩ 282,900", "-₩ 260,400", "+₩ 52,500", "₩ 0", "-₩ 194,675", "-₩ 87,402", "₩ 0", "+₩ 10,796"],
-        "수익률(%)": ["70.8%", "-3.9%", "-2.1%", "-11.0%", "-5.1%", "5.7%", "-4.2%", "-4.0%", "-18.7%", "-6.6%", "0.0%", "-3.8%", "0.0%", "-17.7%", "-12.4%", "-19.7%", "2.1%", "0.0%", "-5.7%", "-1.7%", "0.0%", "0.1%"],
-        "현재가치": ["₩ 7,977,805", "₩ 7,611,450", "₩ 3,872,400", "₩ 3,105,450", "₩ 1,807,200", "₩ 9,198,000", "₩ 4,218,000", "₩ 4,569,000", "₩ 3,498,400", "₩ 3,932,500", "₩ 12,147,405", "₩ 7,703,800", "₩ 2,018,773", "₩ 861,250", "₩ 2,004,000", "₩ 1,060,900", "₩ 2,512,000", "₩ 2,878,878", "₩ 3,166,670", "₩ 3,486,896", "₩ 2,874,694", "₩ 8,010,127"],
-        "계좌내 비중(%)": ["12.9%", "12.3%", "6.3%", "5.0%", "2.9%", "14.9%", "6.8%", "7.4%", "5.6%", "6.3%", "19.6%", "79.2%", "20.8%", "9.2%", "21.5%", "11.4%", "27.0%", "30.9%", "33.2%", "36.6%", "30.2%", "100.0%"]
-    })
-    account_summaries = {
-        "IRP - 장기": {"buy": "₩ 60,464,798", "total": "₩ 61,937,610", "profit": "+₩ 1,472,812", "ret": "+2.4%", "color": "red", "cash_amt": "₩ 12,147,405", "cash_weight": "19.6%", "realized": "+₩ 7,428,292"},
-        "ISA - 중기": {"buy": "₩ 10,027,293", "total": "₩ 9,722,573", "profit": "-₩ 304,720", "ret": "-3.0%", "color": "blue", "cash_amt": "₩ 2,018,773", "cash_weight": "20.8%", "realized": "₩ 0"},
-        "국내주식 - 단기": {"buy": "₩ 9,993,328", "total": "₩ 9,317,028", "profit": "-₩ 676,300", "ret": "-6.8%", "color": "blue", "cash_amt": "₩ 2,878,878", "cash_weight": "30.9%", "realized": "+₩ 929,728"},
-        "해외주식 - 단기": {"buy": "₩ 9,778,571", "total": "₩ 9,528,260", "profit": "-₩ 250,311", "ret": "-2.6%", "color": "blue", "cash_amt": "₩ 2,874,694", "cash_weight": "30.2%", "realized": "+₩ 1,236,133"},
-        "비상금": {"buy": "₩ 8,000,000", "total": "₩ 8,010,127", "profit": "+₩ 10,127", "ret": "+0.1%", "color": "red", "cash_amt": "₩ 8,010,127", "cash_weight": "100.0%", "realized": "+₩ 33,108"}
-    }
-    return metrics, df_region, df_base, df_asset, df_holdings, account_summaries
+    return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
 
 def get_default_asset_data():
     return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -984,29 +957,33 @@ with tab1:
 
     st.subheader("📊 16개 핵심 지표 메트릭")
 
+    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 1행: 미국 지수 및 공포 지수
     cols1 = st.columns(4)
-    cols1[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
-    cols1[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
-    cols1[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
-    cols1[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
+    cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
+    cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
+    cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
+    cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", vix_str, vix_chg)
 
+    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 2행: 아시아 및 국내 지수
     cols2 = st.columns(4)
-    cols2[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
-    cols2[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
-    cols2[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
-    cols2[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", vix_str, vix_chg)
+    cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
+    cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
+    cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
+    cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
+    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 3행: 한·미 국채 금리
     cols3 = st.columns(4)
-    cols3[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
-    cols3[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
-    cols3[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
-    cols3[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
+    cols3[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
+    cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
+    cols3[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", kr10_str, kr10_chg)
+    cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", kr30_str, kr30_chg)
 
+    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 4행: 환율 및 원자재
     cols4 = st.columns(4)
-    cols4[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
-    cols4[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
-    cols4[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", kr10_str, kr10_chg)
-    cols4[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", kr30_str, kr30_chg)
+    cols4[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
+    cols4[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
+    cols4[2].metric(f"WTI유 [{last_dates.get('WTI유', '-')}]\n{get_mdd_text(latest_data.get('WTI유 MDD', 0))}", f"{latest_data.get('WTI유', 0):,.2f} $", changes.get('WTI유', '0.00'))
+    cols4[3].metric(f"금 (Gold) [{last_dates.get('금', '-')}]\n{get_mdd_text(latest_data.get('금 MDD', 0))}", f"{latest_data.get('금', 0):,.2f} $", changes.get('금', '0.00'))
 
 with tab2:
     chart_cols = st.columns(2)
@@ -1045,29 +1022,33 @@ with tab2:
     st.divider()
     st.subheader("📉 개별 지수 및 환율/원자재 추이")
     
+    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 1행: 미국 지수
     mini_cols1 = st.columns(4)
-    with mini_cols1[0]: render_title("원/달러 환율", f"({last_dates.get('환율($/원)', '-')})"); draw_mini_chart(df_market, '환율($/원)')
-    with mini_cols1[1]: render_title("엔/원 환율 (100엔)", f"({last_dates.get('엔/원 환율', '-')})"); draw_mini_chart(df_market, '엔/원 환율')
-    with mini_cols1[2]: render_title("WTI유", f"({last_dates.get('WTI유', '-')})"); draw_mini_chart(df_market, 'WTI유')
-    with mini_cols1[3]: render_title("금 (Gold)", f"({last_dates.get('금', '-')})"); draw_mini_chart(df_market, '금')
+    with mini_cols1[0]: render_title("S&P 500", f"({last_dates.get('S&P500', '-')})"); draw_mini_chart(df_market, 'S&P500')
+    with mini_cols1[1]: render_title("나스닥", f"({last_dates.get('나스닥', '-')})"); draw_mini_chart(df_market, '나스닥')
+    with mini_cols1[2]: render_title("필라델피아 반도체", f"({last_dates.get('필라델피아 반도체', '-')})"); draw_mini_chart(df_market, '필라델피아 반도체')
+    with mini_cols1[3]: render_title("VIX 지수", f"({last_dates.get('VIX', '-')})"); draw_mini_chart(df_market, 'VIX')
 
+    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 2행: 아시아 및 국내 지수
     mini_cols2 = st.columns(4)
-    with mini_cols2[0]: render_title("S&P 500", f"({last_dates.get('S&P500', '-')})"); draw_mini_chart(df_market, 'S&P500')
-    with mini_cols2[1]: render_title("나스닥", f"({last_dates.get('나스닥', '-')})"); draw_mini_chart(df_market, '나스닥')
-    with mini_cols2[2]: render_title("필라델피아 반도체", f"({last_dates.get('필라델피아 반도체', '-')})"); draw_mini_chart(df_market, '필라델피아 반도체')
-    with mini_cols2[3]: render_title("VIX 지수", f"({last_dates.get('VIX', '-')})"); draw_mini_chart(df_market, 'VIX')
+    with mini_cols2[0]: render_title("코스피", f"({last_dates.get('코스피', '-')})"); draw_mini_chart(df_market, '코스피')
+    with mini_cols2[1]: render_title("코스닥", f"({last_dates.get('코스닥', '-')})"); draw_mini_chart(df_market, '코스닥')
+    with mini_cols2[2]: render_title("니케이 225", f"({last_dates.get('니케이', '-')})"); draw_mini_chart(df_market, '니케이')
+    with mini_cols2[3]: render_title("CSI 300", f"({last_dates.get('CSI300', '-')})"); draw_mini_chart(df_market, 'CSI300')
 
+    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 3행: 채권 금리
     mini_cols3 = st.columns(4)
-    with mini_cols3[0]: render_title("코스피", f"({last_dates.get('코스피', '-')})"); draw_mini_chart(df_market, '코스피')
-    with mini_cols3[1]: render_title("코스닥", f"({last_dates.get('코스닥', '-')})"); draw_mini_chart(df_market, '코스닥')
-    with mini_cols3[2]: render_title("니케이 225", f"({last_dates.get('니케이', '-')})"); draw_mini_chart(df_market, '니케이')
-    with mini_cols3[3]: render_title("CSI 300", f"({last_dates.get('CSI300', '-')})"); draw_mini_chart(df_market, 'CSI300')
+    with mini_cols3[0]: render_title("미국 10년물", f"({last_dates.get('미국10년물', '-')})"); draw_mini_chart(df_market, '미국10년물')
+    with mini_cols3[1]: render_title("미국 30년물", f"({last_dates.get('미국30년물', '-')})"); draw_mini_chart(df_market, '미국30년물')
+    with mini_cols3[2]: render_title("한국 10년물", f"({last_dates.get('한국10년물', '-')})"); draw_mini_chart(df_market, '한국10년물')
+    with mini_cols3[3]: render_title("한국 30년물", f"({last_dates.get('한국30년물', '-')})"); draw_mini_chart(df_market, '한국30년물')
 
+    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 4행: 환율 및 원자재
     mini_cols4 = st.columns(4)
-    with mini_cols4[0]: render_title("미국 10년물", f"({last_dates.get('미국10년물', '-')})"); draw_mini_chart(df_market, '미국10년물')
-    with mini_cols4[1]: render_title("미국 30년물", f"({last_dates.get('미국30년물', '-')})"); draw_mini_chart(df_market, '미국30년물')
-    with mini_cols4[2]: render_title("한국 10년물", f"({last_dates.get('한국10년물', '-')})"); draw_mini_chart(df_market, '한국10년물')
-    with mini_cols4[3]: render_title("한국 30년물", f"({last_dates.get('한국30년물', '-')})"); draw_mini_chart(df_market, '한국30년물')
+    with mini_cols4[0]: render_title("원/달러 환율", f"({last_dates.get('환율($/원)', '-')})"); draw_mini_chart(df_market, '환율($/원)')
+    with mini_cols4[1]: render_title("엔/원 환율 (100엔)", f"({last_dates.get('엔/원 환율', '-')})"); draw_mini_chart(df_market, '엔/원 환율')
+    with mini_cols4[2]: render_title("WTI유", f"({last_dates.get('WTI유', '-')})"); draw_mini_chart(df_market, 'WTI유')
+    with mini_cols4[3]: render_title("금 (Gold)", f"({last_dates.get('금', '-')})"); draw_mini_chart(df_market, '금')
 
 with tab3:
     st.subheader("🏭 미국 11대 대표 섹터 자금 흐름 (SPDR ETFs)")
@@ -1270,20 +1251,15 @@ with tab6:
             "보유수량": st.column_config.TextColumn("보유수량", width=100, alignment="right"),
             "매수단가": st.column_config.TextColumn("매수단가", width=150, alignment="right"),
             "현재가": st.column_config.TextColumn("현재가", width=150, alignment="right"),
+            "현재가치": st.column_config.TextColumn("현재가치", width=150, alignment="right"),
             "평가손익": st.column_config.TextColumn("평가손익", width=120, alignment="right"),
             "수익률(%)": st.column_config.TextColumn("수익률(%)", width=100, alignment="right"),
-            "현재가치": st.column_config.TextColumn("현재가치", width=150, alignment="right"),
             "계좌내 비중(%)": st.column_config.TextColumn("계좌내 비중(%)", width=120, alignment="right")
         }
 
         if not df_holdings.empty:
             for acc in df_holdings["계좌 구분"].unique():
                 acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
-                
-                # 🌟 [칼럼 순서 재배치] 요청하신 순서대로 명시적 정렬 적용
-                ordered_cols = ["종목명", "보유수량", "매수단가", "현재가", "평가손익", "수익률(%)", "현재가치", "계좌내 비중(%)"]
-                acc_data = acc_data[[c for c in ordered_cols if c in acc_data.columns]]
-                
                 summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
                 
                 st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
