@@ -92,17 +92,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 타이틀 간소화 및 버전 분리
+# 🌟 타이틀 간소화 및 버전 분리 + 현욱님 숙면 기원 이스터에그
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 <span style='font-size: 1.2rem; color: #888888; font-weight: normal;'>v1.0.54</span></h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">
+        📊 글로벌 마켓 대시보드 <span style='font-size: 1.2rem; color: #888888; font-weight: normal;'>v1.0.55</span>
+        <span style='font-size: 1.0rem; color: #FF5252; margin-left: 20px;'>🌙 현욱아 지피티 그만 괴롭히고 빨리 자라</span>
+    </h2>
 </div>
 """, unsafe_allow_html=True)
 
 # 🌟 [버전 업데이트 히스토리 전용 패널 신설]
 with st.expander("📝 버전 업데이트 히스토리 (Release Notes)"):
     st.markdown("""
-    * **v1.0.54** (현재): 파월 전 의장 임기 종료 반영 (캘린더 텍스트 범용 수정)
+    * **v1.0.55** (현재): 개발자(현욱 님)의 숙면을 위한 타이틀 이스터에그 추가 🌙
+    * **v1.0.54**: 파월 전 의장 임기 종료 반영 (캘린더 텍스트 범용 수정)
     * **v1.0.53**: 메인 타이틀 간소화 및 버전 히스토리 관리 패널 신설
     * **v1.0.52**: 프라이빗 탭(보유종목/자산현황) 비밀번호 1회 입력 시 전체 잠금 해제(Session State) 적용
     * **v1.0.51**: 글로벌 매크로 탑다운(Top-Down) 시선 흐름에 맞춘 전체 지표/차트 논리적 재배치
