@@ -92,18 +92,35 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 🌟 타이틀 간소화 및 버전 분리
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
-    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 (v1.0.51 탑다운 매크로 배치)</h2>
+    <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">📊 글로벌 마켓 대시보드 <span style='font-size: 1.2rem; color: #888888; font-weight: normal;'>v1.0.54</span></h2>
 </div>
 """, unsafe_allow_html=True)
+
+# 🌟 [버전 업데이트 히스토리 전용 패널 신설]
+with st.expander("📝 버전 업데이트 히스토리 (Release Notes)"):
+    st.markdown("""
+    * **v1.0.54** (현재): 파월 전 의장 임기 종료 반영 (캘린더 텍스트 범용 수정)
+    * **v1.0.53**: 메인 타이틀 간소화 및 버전 히스토리 관리 패널 신설
+    * **v1.0.52**: 프라이빗 탭(보유종목/자산현황) 비밀번호 1회 입력 시 전체 잠금 해제(Session State) 적용
+    * **v1.0.51**: 글로벌 매크로 탑다운(Top-Down) 시선 흐름에 맞춘 전체 지표/차트 논리적 재배치
+    * **v1.0.50**: 보유종목 탭의 상세 데이터 표 칼럼 가독성 개선 (가격 ➔ 손익 ➔ 가치 ➔ 비중 순)
+    * **v1.0.48~49**: 16개 핵심 지표 및 상세 미니 차트 레이아웃(행/열) 동기화
+    * **v1.0.47**: 이번 주/다음 주 주요 경제 일정을 자동 필터링하는 '스마트 캘린더' 내장
+    * **v1.0.45~46**: 자산 파이차트 내 % 텍스트 표기 추가 및 차트 상단 여백(잘림 현상) 최적화
+    * **v1.0.44**: 프라이빗 탭 상단 UI 공간 낭비 제거 (비밀번호 및 파일 업로드 2분할 컴팩트화)
+    * **v1.0.43**: 바탕화면 실행 시 엑셀 파일을 수동으로 찾을 필요 없는 '원클릭 자동 업데이트' 기능 추가
+    * **v1.0.42**: 외부 클라우드 환경 접속 시 엑셀 데이터가 없어 발생하는 충돌 에러(KeyError) 방어 로직 적용
+    """)
 
 # ---------------------------------------------------------
 # 🌟 [스마트 캘린더] 2026년 하반기 주요 매크로 일정 데이터베이스
 # ---------------------------------------------------------
 MACRO_EVENTS = {
     "2026-09-18": "일본 BOJ 기준금리 결정 / 미국 네 마녀의 날",
-    "2026-09-24": "파월 연준 의장 연설 / 미 신규 실업수당 청구",
+    "2026-09-24": "연준 의장 연설 / 미 신규 실업수당 청구",
     "2026-09-25": "🚨 미국 8월 개인소비지출(PCE) 물가지수",
     "2026-10-02": "미국 9월 고용동향보고서",
     "2026-10-08": "FOMC 의사록 공개",
@@ -232,9 +249,9 @@ def parse_portfolio_excel(file):
             '현재가_num': cur_price,
             '매수단가': f"₩ {buy_price:,.0f}" if buy_price > 0 else "-",
             '현재가': f"₩ {cur_price:,.0f}" if cur_price > 0 else "-",
-            '현재가치': f"₩ {cur_val:,.0f}",
             '평가손익': f"{'+' if profit_loss > 0 else '-'}₩ {abs(profit_loss):,.0f}" if profit_loss != 0 else "₩ 0", 
             '수익률(%)': f"{ret*100:+.2f}%",
+            '현재가치': f"₩ {cur_val:,.0f}",
             '현재가치_num': cur_val,
             '계좌내 비중(%)': f"{weight*100:.1f}%"
         })
@@ -375,6 +392,9 @@ def load_local_excel_data(mod_time):
     return get_default_portfolio_data(), get_default_asset_data()
 
 current_mod_time = get_file_mod_time()
+
+if "unlocked" not in st.session_state:
+    st.session_state.unlocked = False
 
 if "local_mod_time" not in st.session_state:
     st.session_state.local_mod_time = current_mod_time
@@ -957,28 +977,24 @@ with tab1:
 
     st.subheader("📊 16개 핵심 지표 메트릭")
 
-    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 1행: 미국 지수 및 공포 지수
     cols1 = st.columns(4)
     cols1[0].metric(f"S&P 500 [{last_dates.get('S&P500', '-')}]\n{get_mdd_text(latest_data.get('S&P500 MDD', 0))}", f"{latest_data.get('S&P500', 0):,.2f}", changes.get('S&P500', '0.00'))
     cols1[1].metric(f"NASDAQ [{last_dates.get('나스닥', '-')}]\n{get_mdd_text(latest_data.get('나스닥 MDD', 0))}", f"{latest_data.get('나스닥', 0):,.2f}", changes.get('나스닥', '0.00'))
     cols1[2].metric(f"필라델피아 반도체 [{last_dates.get('필라델피아 반도체', '-')}]\n{get_mdd_text(latest_data.get('필라델피아 반도체 MDD', 0))}", f"{latest_data.get('필라델피아 반도체', 0):,.2f}", changes.get('필라델피아 반도체', '0.00'))
     cols1[3].metric(f"VIX 지수 (공포) [{last_dates.get('VIX', '-')}]\n{get_mdd_text(latest_data.get('VIX MDD', 0))}", vix_str, vix_chg)
 
-    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 2행: 아시아 및 국내 지수
     cols2 = st.columns(4)
     cols2[0].metric(f"KOSPI [{last_dates.get('코스피', '-')}]\n{get_mdd_text(latest_data.get('코스피 MDD', 0))}", f"{latest_data.get('코스피', 0):,.2f}", changes.get('코스피', '0.00'))
     cols2[1].metric(f"KOSDAQ [{last_dates.get('코스닥', '-')}]\n{get_mdd_text(latest_data.get('코스닥 MDD', 0))}", f"{latest_data.get('코스닥', 0):,.2f}", changes.get('코스닥', '0.00'))
     cols2[2].metric(f"Nikkei 225 [{last_dates.get('니케이', '-')}]\n{get_mdd_text(latest_data.get('니케이 MDD', 0))}", f"{latest_data.get('니케이', 0):,.2f}", changes.get('니케이', '0.00'))
     cols2[3].metric(f"CSI 300 [{last_dates.get('CSI300', '-')}]\n{get_mdd_text(latest_data.get('CSI300 MDD', 0))}", f"{latest_data.get('CSI300', 0):,.2f}", changes.get('CSI300', '0.00'))
 
-    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 3행: 한·미 국채 금리
     cols3 = st.columns(4)
     cols3[0].metric(f"미국 10년물 [{last_dates.get('미국10년물', '-')}]", f"{latest_data.get('미국10년물', 0):.3f} %", changes.get('미국10년물', '0.00'))
     cols3[1].metric(f"미국 30년물 [{last_dates.get('미국30년물', '-')}]", f"{latest_data.get('미국30년물', 0):.3f} %", changes.get('미국30년물', '0.00'))
     cols3[2].metric(f"한국 10년물 [{last_dates.get('한국10년물', '-')}]", kr10_str, kr10_chg)
     cols3[3].metric(f"한국 30년물 [{last_dates.get('한국30년물', '-')}]", kr30_str, kr30_chg)
 
-    # 🌟 [지표 배치 수정 - 탑다운 매크로 방식] 4행: 환율 및 원자재
     cols4 = st.columns(4)
     cols4[0].metric(f"원/달러 환율 [{last_dates.get('환율($/원)', '-')}]\n{get_mdd_text(latest_data.get('환율($/원) MDD', 0))}", f"{latest_data.get('환율($/원)', 0):,.2f} 원", changes.get('환율($/원)', '0.00'))
     cols4[1].metric(f"엔/원 환율 (100엔) [{last_dates.get('엔/원 환율', '-')}]\n{get_mdd_text(latest_data.get('엔/원 환율 MDD', 0))}", f"{latest_data.get('엔/원 환율', 0):,.2f} 원", changes.get('엔/원 환율', '0.00'))
@@ -1022,28 +1038,24 @@ with tab2:
     st.divider()
     st.subheader("📉 개별 지수 및 환율/원자재 추이")
     
-    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 1행: 미국 지수
     mini_cols1 = st.columns(4)
     with mini_cols1[0]: render_title("S&P 500", f"({last_dates.get('S&P500', '-')})"); draw_mini_chart(df_market, 'S&P500')
     with mini_cols1[1]: render_title("나스닥", f"({last_dates.get('나스닥', '-')})"); draw_mini_chart(df_market, '나스닥')
     with mini_cols1[2]: render_title("필라델피아 반도체", f"({last_dates.get('필라델피아 반도체', '-')})"); draw_mini_chart(df_market, '필라델피아 반도체')
     with mini_cols1[3]: render_title("VIX 지수", f"({last_dates.get('VIX', '-')})"); draw_mini_chart(df_market, 'VIX')
 
-    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 2행: 아시아 및 국내 지수
     mini_cols2 = st.columns(4)
     with mini_cols2[0]: render_title("코스피", f"({last_dates.get('코스피', '-')})"); draw_mini_chart(df_market, '코스피')
     with mini_cols2[1]: render_title("코스닥", f"({last_dates.get('코스닥', '-')})"); draw_mini_chart(df_market, '코스닥')
     with mini_cols2[2]: render_title("니케이 225", f"({last_dates.get('니케이', '-')})"); draw_mini_chart(df_market, '니케이')
     with mini_cols2[3]: render_title("CSI 300", f"({last_dates.get('CSI300', '-')})"); draw_mini_chart(df_market, 'CSI300')
 
-    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 3행: 채권 금리
     mini_cols3 = st.columns(4)
     with mini_cols3[0]: render_title("미국 10년물", f"({last_dates.get('미국10년물', '-')})"); draw_mini_chart(df_market, '미국10년물')
     with mini_cols3[1]: render_title("미국 30년물", f"({last_dates.get('미국30년물', '-')})"); draw_mini_chart(df_market, '미국30년물')
     with mini_cols3[2]: render_title("한국 10년물", f"({last_dates.get('한국10년물', '-')})"); draw_mini_chart(df_market, '한국10년물')
     with mini_cols3[3]: render_title("한국 30년물", f"({last_dates.get('한국30년물', '-')})"); draw_mini_chart(df_market, '한국30년물')
 
-    # 🌟 [차트 배치 동기화 - 탑다운 매크로 방식] 4행: 환율 및 원자재
     mini_cols4 = st.columns(4)
     with mini_cols4[0]: render_title("원/달러 환율", f"({last_dates.get('환율($/원)', '-')})"); draw_mini_chart(df_market, '환율($/원)')
     with mini_cols4[1]: render_title("엔/원 환율 (100엔)", f"({last_dates.get('엔/원 환율', '-')})"); draw_mini_chart(df_market, '엔/원 환율')
@@ -1143,9 +1155,18 @@ with tab5:
 
 with tab6:
     st.subheader("🔒 개인 포트폴리오 (Private)")
-    pwd = st.text_input("보유종목 탭 암호", type="password", key="pwd_tab6", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
     
-    if pwd == "1016":
+    if not st.session_state.get('unlocked', False):
+        pwd = st.text_input("보유종목 탭 암호", type="password", key="pwd_tab6", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
+        if pwd == "1016":
+            st.session_state.unlocked = True
+            st.rerun()
+        elif pwd != "":
+            st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+        else:
+            st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
+            
+    if st.session_state.get('unlocked', False):
         sync_col1, sync_col2 = st.columns(2)
         with sync_col1:
             st.success("✅ 인증 완료! '자산투자관리.xlsx' 연동됨")
@@ -1251,22 +1272,25 @@ with tab6:
             "보유수량": st.column_config.TextColumn("보유수량", width=100, alignment="right"),
             "매수단가": st.column_config.TextColumn("매수단가", width=150, alignment="right"),
             "현재가": st.column_config.TextColumn("현재가", width=150, alignment="right"),
-            "현재가치": st.column_config.TextColumn("현재가치", width=150, alignment="right"),
             "평가손익": st.column_config.TextColumn("평가손익", width=120, alignment="right"),
             "수익률(%)": st.column_config.TextColumn("수익률(%)", width=100, alignment="right"),
+            "현재가치": st.column_config.TextColumn("현재가치", width=150, alignment="right"),
             "계좌내 비중(%)": st.column_config.TextColumn("계좌내 비중(%)", width=120, alignment="right")
         }
 
         if not df_holdings.empty:
             for acc in df_holdings["계좌 구분"].unique():
                 acc_data = df_holdings[df_holdings["계좌 구분"] == acc].drop(columns=["계좌 구분", "매수단가_num", "현재가_num"], errors='ignore')
+                
+                ordered_cols = ["종목명", "보유수량", "매수단가", "현재가", "평가손익", "수익률(%)", "현재가치", "계좌내 비중(%)"]
+                acc_data = acc_data[[c for c in ordered_cols if c in acc_data.columns]]
+                
                 summary = account_summaries.get(acc, {"buy": "", "total": "", "profit": "", "ret": "", "color": "black", "cash_amt": "", "cash_weight": "", "realized": ""})
                 
                 st.markdown(f"**🏦 {acc}** &nbsp; | &nbsp; 총매수: {summary['buy']} &nbsp; | &nbsp; 총평가: {summary['total']} &nbsp; | &nbsp; 평가손익: :{summary['color']}[**{summary['profit']} ({summary['ret']})**] &nbsp; | &nbsp; 💰 실현손익: **{summary['realized']}** &nbsp; | &nbsp; 💵 현금비중: **{summary['cash_weight']}** ({summary['cash_amt']})")
                 
                 dynamic_height = len(acc_data) * 36 + 43
                 
-                # 🌟 색상 적용 로직 (Pandas Styler 활용)
                 def color_profit_loss(val):
                     val_str = str(val)
                     if '+' in val_str:
@@ -1291,17 +1315,21 @@ with tab6:
                 st.dataframe(styled_df, width="stretch", hide_index=True, column_config=col_config, height=dynamic_height)
                 
                 st.markdown("<br>", unsafe_allow_html=True)
-        
-    elif pwd != "":
-        st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
-    else:
-        st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
 
 with tab7:
     st.subheader("💼 종합 자산 및 현금흐름 (Private)")
-    pwd2 = st.text_input("자산현황 탭 암호", type="password", key="pwd_tab7", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
     
-    if pwd2 == "1016":
+    if not st.session_state.get('unlocked', False):
+        pwd2 = st.text_input("자산현황 탭 암호", type="password", key="pwd_tab7", placeholder="이 탭은 소유자 전용 공간입니다. 접근 암호를 입력하세요.", label_visibility="collapsed")
+        if pwd2 == "1016":
+            st.session_state.unlocked = True
+            st.rerun()
+        elif pwd2 != "":
+            st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+        else:
+            st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
+            
+    if st.session_state.get('unlocked', False):
         sync_col1, sync_col2 = st.columns(2)
         with sync_col1:
             st.success("✅ 인증 완료! '자산투자관리.xlsx' 연동됨")
@@ -1370,8 +1398,3 @@ with tab7:
             st.markdown("##### 🏦 월평균 고정지출 그룹 (가족 보험/교육비 등)")
             if not df_fixed.empty:
                 st.dataframe(df_fixed, width="stretch", hide_index=True, column_config={"금액": st.column_config.TextColumn("금액", alignment="right")}, height=len(df_fixed)*36 + 43)
-
-    elif pwd2 != "":
-        st.error("비밀번호가 일치하지 않습니다. (Hint: 0000)")
-    else:
-        st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
