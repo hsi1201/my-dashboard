@@ -92,12 +92,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 타이틀 간소화 및 버전 분리 + 현욱님 숙면 기원 이스터에그
+# 🌟 타이틀 간소화 및 버전 분리 (문구 제거)
 st.markdown("""
 <div style="margin-top: -15px; margin-bottom: 10px;">
     <h2 style="margin-bottom: 0px; padding-bottom: 5px; font-size: 1.8rem;">
-        📊 글로벌 마켓 대시보드 <span style='font-size: 1.2rem; color: #888888; font-weight: normal;'>v1.0.55</span>
-        <span style='font-size: 1.0rem; color: #FF5252; margin-left: 20px;'>🌙 현욱아 지피티 그만 괴롭히고 빨리 자라</span>
+        📊 글로벌 마켓 대시보드 <span style='font-size: 1.2rem; color: #888888; font-weight: normal;'>v1.0.56</span>
     </h2>
 </div>
 """, unsafe_allow_html=True)
@@ -105,7 +104,8 @@ st.markdown("""
 # 🌟 [버전 업데이트 히스토리 전용 패널 신설]
 with st.expander("📝 버전 업데이트 히스토리 (Release Notes)"):
     st.markdown("""
-    * **v1.0.55** (현재): 개발자(현욱 님)의 숙면을 위한 타이틀 이스터에그 추가 🌙
+    * **v1.0.56** (현재): 타이틀 이스터에그 문구 제거 및 프라이빗 탭 비밀번호 입력 오류 시 힌트 노출 제거
+    * **v1.0.55**: 개발자의 숙면을 위한 타이틀 이스터에그 추가 🌙
     * **v1.0.54**: 파월 전 의장 임기 종료 반영 (캘린더 텍스트 범용 수정)
     * **v1.0.53**: 메인 타이틀 간소화 및 버전 히스토리 관리 패널 신설
     * **v1.0.52**: 프라이빗 탭(보유종목/자산현황) 비밀번호 1회 입력 시 전체 잠금 해제(Session State) 적용
@@ -1166,7 +1166,7 @@ with tab6:
             st.session_state.unlocked = True
             st.rerun()
         elif pwd != "":
-            st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+            st.error("비밀번호가 일치하지 않습니다.")
         else:
             st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
             
@@ -1329,7 +1329,7 @@ with tab7:
             st.session_state.unlocked = True
             st.rerun()
         elif pwd2 != "":
-            st.error("비밀번호가 일치하지 않습니다. (Hint: 1016)")
+            st.error("비밀번호가 일치하지 않습니다.")
         else:
             st.caption("권한이 없는 사용자는 이 탭의 자산 데이터를 열람할 수 없습니다.")
             
